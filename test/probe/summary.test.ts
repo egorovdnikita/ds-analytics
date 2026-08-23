@@ -65,7 +65,12 @@ describe('различение «пусто» и «не применимо»', (
 
   it('layer-violation со слоями, но без локальных компонентов — не применимо', () => {
     const s = build(
-      { nodesWithAlias: 100, localComponents: 0, collectionNames: ['Primitives', 'Semantic'] },
+      {
+        nodesWithAlias: 100,
+        localComponents: 0,
+        collectionNames: ['Primitives', 'Semantic'],
+        layeredCollectionNames: ['Primitives', 'Semantic'],
+      },
       { 'tokens/layer-violation': 0 },
     );
 
@@ -81,6 +86,7 @@ describe('различение «пусто» и «не применимо»', (
         nodesWithAlias: 100,
         localComponents: 5,
         collectionNames: ['Primitives', 'Semantic'],
+        layeredCollectionNames: ['Primitives', 'Semantic'],
         nodesInComponentMaster: 80,
         variablesByLayer: { primitives: 4, semantic: 9, component: 0, unmapped: 2 },
       },
@@ -189,6 +195,100 @@ describe('layer-violation: ноль обязан быть проверяемым
     });
 
     expect(s.layerNote).toContain('На слои легли коллекции: Primitives');
-    expect(s.layerNote).toContain('Переменных размечено 55 из 155');
+    expect(s.layerNote).toContain('Размечено 55 переменных из 155');
+  });
+});
+
+describe('layer-violation на боевых цифрах', () => {
+  const realDs = {
+    nodesWithAlias: 20744,
+    localComponents: 9790,
+    nodesInComponentMaster: 93114,
+    collectionNames: ['Primitives', 'Brand Colors', 'Kit', 'System'],
+    layeredCollectionNames: ['Primitives'],
+  };
+
+  it('1 размеченная переменная из 796 — не применимо, а не «чисто»', () => {
+    // Боевой прогон по всему файлу ДС дал ровно эти цифры и подписал
+    // результат как «чисто». Это и есть ложное «у вас всё хорошо».
+    const s = build(
+      {
+        ...realDs,
+        variablesByLayer: { primitives: 1, semantic: 0, component: 0, unmapped: 795 },
+      },
+      { 'tokens/layer-violation': 0 },
+    );
+
+    expect(outcomeOf(s, 'tokens/layer-violation')).toEqual({
+      status: 'not-applicable',
+      reason:
+        'Нет ни одной семантической переменной — правилу не на что указывать как на верную альтернативу',
+    });
+  });
+
+  it('без семантики правило бессмысленно даже при сотне примитивов', () => {
+    const s = build(
+      {
+        ...realDs,
+        variablesByLayer: { primitives: 100, semantic: 0, component: 0, unmapped: 10 },
+      },
+      { 'tokens/layer-violation': 0 },
+    );
+
+    expect(outcomeOf(s, 'tokens/layer-violation')).toMatchObject({ status: 'not-applicable' });
+  });
+
+  it('символическое покрытие при живой семантике — тоже не применимо', () => {
+    const s = build(
+      {
+        ...realDs,
+        variablesByLayer: { primitives: 3, semantic: 2, component: 0, unmapped: 791 },
+      },
+      { 'tokens/layer-violation': 0 },
+    );
+
+    expect(outcomeOf(s, 'tokens/layer-violation')).toMatchObject({
+      status: 'not-applicable',
+      reason: 'Размечено 5 переменных из 796 — правило покроет ничтожную долю системы',
+    });
+  });
+
+  it('живая разметка и ноль нарушений — осмысленное «чисто»', () => {
+    const s = build(
+      {
+        ...realDs,
+        variablesByLayer: { primitives: 120, semantic: 300, component: 40, unmapped: 60 },
+      },
+      { 'tokens/layer-violation': 0 },
+    );
+
+    expect(outcomeOf(s, 'tokens/layer-violation')).toMatchObject({ status: 'empty' });
+  });
+});
+
+describe('текст про слои не врёт', () => {
+  it('пустая разметка при похожих именах предлагает проверить TOKEN_LAYERS', () => {
+    // Боевой файл-потребитель: «Theme colors» похоже на слой, но точного
+    // совпадения нет, и отчёт печатал «На слои легли коллекции: .» с пустым
+    // списком.
+    const s = build({
+      collectionNames: ['Theme colors', 'Collection 1'],
+      layeredCollectionNames: [],
+      nodesWithAlias: 9220,
+    });
+
+    expect(s.layersReadable).toBe(false);
+    expect(s.layerNote).toContain('Ни одна коллекция не легла на слои');
+    expect(s.layerNote).not.toContain('легли коллекции: .');
+  });
+
+  it('символическое покрытие проговаривается словами', () => {
+    const s = build({
+      layeredCollectionNames: ['Primitives'],
+      variablesByLayer: { primitives: 1, semantic: 0, component: 0, unmapped: 795 },
+    });
+
+    expect(s.layerNote).toContain('Размечено 1 переменных из 796');
+    expect(s.layerNote).toContain('доли процента');
   });
 });

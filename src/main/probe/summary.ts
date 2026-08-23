@@ -20,6 +20,9 @@ import type {
   RuleSummary,
 } from '../../shared/probe';
 
+/** Ниже этой доли размеченных переменных правило ничего не покрывает. */
+const MIN_LAYER_COVERAGE = 0.05;
+
 const LAYER_ROOTS = [
   'primitive',
   'palette',
@@ -94,6 +97,26 @@ function outcomeFor(
           reason: 'Ни одна переменная не попала в слой примитивов — нарушать нечего',
         };
       }
+      // Правило звучит как «привязался к примитиву ВМЕСТО семантики».
+      // Если семантического слоя нет, у нарушения нет альтернативы, и
+      // правило теряет смысл независимо от числа примитивов.
+      if (d.variablesByLayer.semantic === 0) {
+        return {
+          status: 'not-applicable',
+          reason:
+            'Нет ни одной семантической переменной — правилу не на что указывать как на верную альтернативу',
+        };
+      }
+      // Разметка на уровне единиц переменных из сотен ничего не покрывает.
+      const layered =
+        d.variablesByLayer.primitives + d.variablesByLayer.semantic + d.variablesByLayer.component;
+      const total = layered + d.variablesByLayer.unmapped;
+      if (total > 0 && layered / total < MIN_LAYER_COVERAGE) {
+        return {
+          status: 'not-applicable',
+          reason: `Размечено ${layered} переменных из ${total} — правило покроет ничтожную долю системы`,
+        };
+      }
       if (d.nodesInComponentMaster === 0) {
         return {
           status: 'not-applicable',
@@ -140,15 +163,23 @@ function outcomeFor(
  * какие именно коллекции легли на слои, и её нельзя проверить глазами.
  */
 function layerNote(d: Diagnostics, layersOk: boolean): string {
+  const v = d.variablesByLayer;
+  const layered = v.primitives + v.semantic + v.component;
+  const total = layered + v.unmapped;
+
   if (!layersOk) {
-    return 'Ни одно имя коллекции не читается как слой ДС. Правило layer-violation потребует ручной разметки на каждом файле — либо неприменимо к этой системе вовсе.';
+    return layersReadable(d.collectionNames)
+      ? 'Ни одна коллекция не легла на слои, хотя в именах есть похожие на слоевые. Проверьте разметку TOKEN_LAYERS: сопоставление идёт по точному имени.'
+      : 'Ни одно имя коллекции не читается как слой ДС. Правило layer-violation потребует ручной разметки на каждом файле — либо неприменимо к этой системе вовсе.';
   }
 
-  const mapped = [...new Set(d.layeredCollectionNames)];
-  const v = d.variablesByLayer;
-  const total = v.primitives + v.semantic + v.component;
+  const mapped = [...new Set(d.layeredCollectionNames)].join(', ');
+  const head = `На слои легли коллекции: ${mapped}. Размечено ${layered} переменных из ${total} — примитивы ${v.primitives}, семантика ${v.semantic}, компонентные ${v.component}.`;
 
-  return `На слои легли коллекции: ${mapped.join(', ')}. Переменных размечено ${total} из ${total + v.unmapped} — примитивы ${v.primitives}, семантика ${v.semantic}, компонентные ${v.component}.`;
+  if (total > 0 && layered / total < MIN_LAYER_COVERAGE) {
+    return `${head} Это доли процента системы: правило будет проверять почти ничего.`;
+  }
+  return head;
 }
 
 export function buildSummary(input: {
@@ -161,7 +192,10 @@ export function buildSummary(input: {
   sampled: ReadonlyMap<ProbeRuleId, number>;
 }): ProbeSummary {
   const { diagnostics: d } = input;
-  const layersOk = layersReadable(d.collectionNames);
+  // Ключевой признак — легли ли коллекции на слои ФАКТИЧЕСКИ. Догадка по
+  // именам осталась только подсказкой: она давала «намёк на слои есть» там,
+  // где не размечено ничего, и отчёт печатал пустой список коллекций.
+  const layersOk = d.layeredCollectionNames.length > 0;
   const { profile, note } = detectProfile(d);
 
   const rules: RuleSummary[] = [...input.hits].map(([rule, hits]) => ({

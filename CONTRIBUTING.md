@@ -8,9 +8,26 @@ npm run verify     # то же, что гоняет CI: typecheck + lint + forma
 npm run dev        # watch-сборка plugin sandbox
 ```
 
-Импорт плагина в Figma: **Plugins → Development → Import plugin from manifest** → выбрать `manifest.json` из корня репозитория. Перед первым импортом выполнить `npm run build` — манифест ссылается на `dist/`.
+## Запуск в Figma
 
-> `manifest.json` намеренно без поля `id`. Для локальной разработки оно не нужно; Figma присваивает id при создании плагина в Community. Не коммитить чужой id.
+**Нужно десктопное приложение Figma.** В браузере локальные плагины не запускаются: Figma читает код с диска. Это требование документации, не наше ограничение.
+
+1. `npm run build` — манифест ссылается на `dist/`, без сборки импорт не заработает.
+2. Figma → **Plugins → Development → Import plugin from manifest…** → выбрать `manifest.json` из корня репозитория.
+3. Запуск: **Plugins → Development → Design System Auditor**.
+
+При разработке держать `npm run dev` (watch-сборка sandbox). UI пересобирается только через `npm run build:ui`. После пересборки плагин перезапустить — Figma не следит за файлами.
+
+### Про поле `id`
+
+`manifest.json` идёт **без `id`**. По [документации Figma](https://developers.figma.com/docs/plugins/manifest/) поле обязательное — его присваивает сама Figma при создании плагина или при публикации, поэтому в репозитории его нет: чужой id коммитить нельзя.
+
+Если импорт манифеста упрётся в отсутствующий `id`:
+
+1. **Plugins → Development → New plugin…** — создать любой плагин, Figma сгенерирует манифест с `id`.
+2. Скопировать оттуда значение `id` в наш `manifest.json` **локально, не коммитя**.
+
+Проще всего добавить строку и не индексировать её: `git update-index --skip-worktree manifest.json`.
 
 ## Структура
 

@@ -196,7 +196,13 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
         nodesOnLocalVariable: onLocalVariable,
         nodesWithoutVariable: withoutVariable,
       },
-      figma.teamLibrary,
+      {
+        // Обращение к figma.teamLibrary само бросает исключение, если в
+        // манифесте нет разрешения. Оборачиваем в функцию, чтобы бросок
+        // случился внутри перехвата, а не убил весь прогон.
+        getAvailableLibraryVariableCollectionsAsync: () =>
+          figma.teamLibrary.getAvailableLibraryVariableCollectionsAsync(),
+      },
     ),
     summary: buildSummary({
       fileName: figma.root.name,

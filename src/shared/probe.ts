@@ -112,6 +112,13 @@ export interface CollectionUsage {
 }
 
 export interface Adoption {
+  /**
+   * Удалось ли назвать библиотеки-источники.
+   *
+   * false означает «не смогли спросить», а не «библиотек нет»: без
+   * разрешения teamlibrary в манифесте обращение к API бросает исключение.
+   */
+  readonly librarySourcesAvailable: boolean;
   /** Инстансы верхнего уровня: вложенные делят мастера с родителем. */
   readonly instancesCounted: number;
   readonly mastersTotal: number;

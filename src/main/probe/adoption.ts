@@ -46,9 +46,13 @@ export async function buildAdoption(
   const masters = countMasters(input.masterRefs);
   const unknown = input.masterRefs.filter((ref) => ref === null).length;
 
-  const { collections, libraries } = await describeVariableSources(input.resolver, library);
+  const { collections, libraries, available } = await describeVariableSources(
+    input.resolver,
+    library,
+  );
 
   return {
+    librarySourcesAvailable: available,
     instancesCounted: input.masterRefs.length,
     mastersTotal: masters.length,
     fromLibrary: masters.filter((m) => m.origin === 'library').reduce(sumInstances, 0),
@@ -96,22 +100,27 @@ function countMasters(refs: readonly (MasterRef | null)[]): MasterUsage[] {
 async function describeVariableSources(
   resolver: VariableResolver,
   library: LibraryGateway,
-): Promise<{ collections: CollectionUsage[]; libraries: LibrarySource[] }> {
+): Promise<{ collections: CollectionUsage[]; libraries: LibrarySource[]; available: boolean }> {
   const libraryByKey = new Map<string, string>();
+  let available = true;
   try {
     for (const collection of await library.getAvailableLibraryVariableCollectionsAsync()) {
       libraryByKey.set(collection.key, collection.libraryName);
     }
   } catch {
-    // Библиотеки недоступны — источники останутся неизвестными, но
-    // остальной отчёт от этого не теряется.
+    // Один необязательный источник данных не должен ронять весь замер.
+    // Так и произошло на боевом прогоне: без разрешения teamlibrary
+    // обращение к figma.teamLibrary бросает исключение, и падал весь скан.
+    available = false;
   }
 
   const collections: CollectionUsage[] = resolver.collectionsWithUsage().map((collection) => ({
     name: collection.name,
     source: collection.isLocal
       ? 'Локальная'
-      : (libraryByKey.get(collection.key) ?? 'Библиотека не подключена'),
+      : available
+        ? (libraryByKey.get(collection.key) ?? 'Библиотека не подключена')
+        : 'Источник неизвестен',
     variables: collection.variables,
     isLocal: collection.isLocal,
   }));
@@ -129,5 +138,9 @@ async function describeVariableSources(
     .map(([libraryName, value]) => ({ libraryName, ...value }))
     .sort((a, b) => b.variables - a.variables);
 
-  return { collections: collections.sort((a, b) => b.variables - a.variables), libraries };
+  return {
+    collections: collections.sort((a, b) => b.variables - a.variables),
+    libraries,
+    available,
+  };
 }

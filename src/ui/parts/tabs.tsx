@@ -85,7 +85,17 @@ export function SummaryTab({
         />
       </section>
 
-      {adoption.libraries.length > 0 && (
+      {!adoption.librarySourcesAvailable && (
+        <section>
+          <H>Библиотеки-источники</H>
+          <p className="text-[11px] leading-snug text-amber-700">
+            Не удалось спросить — это не значит «библиотек нет». Для названий библиотек нужно
+            разрешение <code>teamlibrary</code> в манифесте.
+          </p>
+        </section>
+      )}
+
+      {adoption.librarySourcesAvailable && adoption.libraries.length > 0 && (
         <section>
           <H>Библиотеки-источники</H>
           <Table head={['Библиотека', 'Коллекций', 'Переменных']}>

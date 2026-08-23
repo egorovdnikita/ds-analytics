@@ -157,6 +157,30 @@ export class VariableResolver {
     }
   }
 
+  /**
+   * Сколько переменных попало в каждый слой.
+   *
+   * Без этого «нарушений слоёв не найдено» непроверяемо: ноль нарушений при
+   * нуле примитивных переменных означает не здоровую систему, а то, что
+   * правилу нечего было нарушать.
+   */
+  countByLayer(): Readonly<Record<TokenLayer | 'unmapped', number>> {
+    const counts = { primitives: 0, semantic: 0, component: 0, unmapped: 0 };
+    for (const resolved of this.#byId.values()) {
+      if (resolved.state === 'unavailable') continue;
+      if (resolved.layer === null) counts.unmapped++;
+      else counts[resolved.layer]++;
+    }
+    return counts;
+  }
+
+  /** Имена коллекций, которые удалось сопоставить слою. */
+  layeredCollectionNames(): readonly string[] {
+    return [...this.#collections.values()]
+      .filter((collection) => collection.layer !== null)
+      .map((collection) => collection.name);
+  }
+
   /** Имена всех известных коллекций — локальных и догруженных библиотечных. */
   get collectionNames(): readonly string[] {
     return [...this.#collections.values()].map((collection) => collection.name);

@@ -219,3 +219,47 @@ describe('VariableResolver — коллекции библиотечных пе�
     expect([...resolver.collectionNames].sort()).toEqual(['Local', 'Remote']);
   });
 });
+
+describe('VariableResolver — счётчики по слоям', () => {
+  it('считает переменные по слоям и отдельно неразмеченные', async () => {
+    // «Нарушений слоёв не найдено» непроверяемо без этих чисел: ноль
+    // нарушений при нуле примитивов — это не здоровье системы, а пустота.
+    const resolver = await VariableResolver.build(
+      gateway({
+        getLocalVariableCollectionsAsync: () =>
+          Promise.resolve([
+            collection('C:1', 'Primitives'),
+            collection('C:2', 'Semantic'),
+            collection('C:3', 'Brand Colors'),
+          ]),
+        getLocalVariablesAsync: () =>
+          Promise.resolve([
+            variable({ id: 'V:1', collectionId: 'C:1' }),
+            variable({ id: 'V:2', collectionId: 'C:1' }),
+            variable({ id: 'V:3', collectionId: 'C:2' }),
+            variable({ id: 'V:4', collectionId: 'C:3' }),
+          ]),
+      }),
+      { primitives: ['Primitives'], semantic: ['Semantic'] },
+    );
+
+    expect(resolver.countByLayer()).toEqual({
+      primitives: 2,
+      semantic: 1,
+      component: 0,
+      unmapped: 1,
+    });
+  });
+
+  it('называет коллекции, которые легли на слои', async () => {
+    const resolver = await VariableResolver.build(
+      gateway({
+        getLocalVariableCollectionsAsync: () =>
+          Promise.resolve([collection('C:1', 'Primitives'), collection('C:2', 'Kit')]),
+      }),
+      { primitives: ['Primitives'] },
+    );
+
+    expect(resolver.layeredCollectionNames()).toEqual(['Primitives']);
+  });
+});

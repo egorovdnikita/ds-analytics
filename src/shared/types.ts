@@ -50,3 +50,27 @@ export interface ScanSummary {
   readonly issues: readonly Issue[];
   readonly durationMs: number;
 }
+
+/** Уровень правила в конфиге. `off` — правило выключено. */
+export type RuleLevel = 'off' | Severity;
+
+/**
+ * Настройка правила: либо уровень, либо уровень с опциями —
+ * `"tokens/raw-fill": "error"` или `"a11y/token-pair-contrast": ["warning", { "level": "AA" }]`.
+ */
+export type RuleSetting = RuleLevel | readonly [RuleLevel, Readonly<Record<string, unknown>>];
+
+export interface AuditConfig {
+  readonly version: 1;
+  readonly extends: string;
+  readonly scope: { readonly default: ScanScope };
+  readonly rules: Readonly<Record<string, RuleSetting>>;
+  /** Обязателен для `tokens/layer-violation`. Пустой — правило отключается. */
+  readonly tokenLayers: Readonly<Record<string, readonly string[]>>;
+  /**
+   * Кто и когда менял. Конфиг живёт в документе и переписывается целиком:
+   * полноценного мерджа нет, поэтому нужна хотя бы видимость авторства.
+   */
+  readonly updatedBy?: string;
+  readonly updatedAt?: string;
+}

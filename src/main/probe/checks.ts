@@ -36,8 +36,12 @@ export interface Hit {
 
 export interface ProbeContext {
   readonly resolver: VariableResolver;
-  /** Имена мастеров компонентов файла — для эвристики detached. */
-  readonly componentNames: ReadonlySet<string>;
+  /**
+   * Имена мастеров — локальных компонентов И мастеров, до которых дотянулись
+   * через инстансы. Только локальных недостаточно: в файле-потребителе
+   * мастера лежат в библиотеке, и эвристика detached не сработала бы никогда.
+   */
+  readonly masterNames: ReadonlySet<string>;
 }
 
 const DEFAULT_NAME =
@@ -93,20 +97,45 @@ function isAlias(value: unknown): value is VariableAlias {
   );
 }
 
-/** Внутри ли нода компонента или инстанса — для layer-violation. */
-function insideComponent(node: SceneNode): boolean {
+/**
+ * Внутри ли нода определения компонента.
+ *
+ * Инстансы сюда НЕ входят: «компонент биндится к примитиву» — про мастер.
+ * Внутренности инстанса приходят из мастера, и чинить их на месте нечем.
+ */
+export function insideComponentMaster(node: SceneNode): boolean {
+  if (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET') return true;
   let current: BaseNode | null = node.parent;
   while (current !== null) {
-    if (
-      current.type === 'COMPONENT' ||
-      current.type === 'COMPONENT_SET' ||
-      current.type === 'INSTANCE'
-    ) {
-      return true;
-    }
+    if (current.type === 'COMPONENT' || current.type === 'COMPONENT_SET') return true;
     current = current.parent;
   }
-  return node.type === 'COMPONENT' || node.type === 'INSTANCE';
+  return false;
+}
+
+/** Внутри ли нода инстанса — включая сам инстанс. */
+export function insideInstance(node: SceneNode): boolean {
+  if (node.type === 'INSTANCE') return true;
+  let current: BaseNode | null = node.parent;
+  while (current !== null) {
+    if (current.type === 'INSTANCE') return true;
+    current = current.parent;
+  }
+  return false;
+}
+
+/**
+ * Привязана ли заливка к стилю.
+ *
+ * Первый боевой прогон дал 5798 срабатываний raw-fill на странице, собранной
+ * из библиотечных инстансов. Причина: проверка смотрела только на переменные.
+ * Заливка через paint-стиль — не хардкод, и считать её нарушением значит
+ * утопить сигнал.
+ */
+export function hasFillStyle(node: SceneNode): boolean {
+  if (!('fillStyleId' in node)) return false;
+  const styleId: unknown = node.fillStyleId;
+  return typeof styleId === 'string' && styleId !== '';
 }
 
 export function check(node: SceneNode, pageId: string, ctx: ProbeContext): Hit[] {
@@ -114,8 +143,15 @@ export function check(node: SceneNode, pageId: string, ctx: ProbeContext): Hit[]
   const at = { pageId, nodeId: node.id, nodeName: node.name };
 
   // --- tokens/raw-fill ---
+  // Три исключения, все найдены первым боевым прогоном: заливка через
+  // переменную, заливка через стиль, нода внутри инстанса.
   const solids = visibleSolidFills(node);
-  if (solids.length > 0 && boundFillAliases(node).length === 0) {
+  if (
+    solids.length > 0 &&
+    boundFillAliases(node).length === 0 &&
+    !hasFillStyle(node) &&
+    !insideInstance(node)
+  ) {
     const first = solids[0];
     if (first !== undefined) {
       hits.push({ rule: 'tokens/raw-fill', ...at, detail: toHex(first.color) });
@@ -140,7 +176,7 @@ export function check(node: SceneNode, pageId: string, ctx: ProbeContext): Hit[]
   }
 
   // --- tokens/layer-violation ---
-  if (insideComponent(node)) {
+  if (insideComponentMaster(node)) {
     for (const alias of aliases) {
       const resolved = ctx.resolver.resolve(alias.id);
       if (resolved.state !== 'unavailable' && resolved.layer === 'primitives') {
@@ -156,7 +192,7 @@ export function check(node: SceneNode, pageId: string, ctx: ProbeContext): Hit[]
   // --- components/detached-instance ---
   // Самая слабая эвристика каталога, и включена намеренно: если она провалится
   // по сигналу, лучше узнать это здесь, а не после релиза.
-  if (node.type === 'FRAME' && ctx.componentNames.has(node.name)) {
+  if (node.type === 'FRAME' && ctx.masterNames.has(node.name)) {
     hits.push({
       rule: 'components/detached-instance',
       ...at,

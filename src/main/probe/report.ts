@@ -5,6 +5,7 @@
  * Формат под вставку в таблицу, а не под чтение глазами в textarea.
  */
 import type { Hit, ProbeRuleId } from './checks';
+import { explain, type Diagnostics } from './diagnostics';
 
 export const VERDICT_HINT = 'реальная | ложная | намеренная';
 
@@ -18,6 +19,7 @@ export interface ReportMeta {
   readonly nodesVisited: number;
   readonly cancelled: boolean;
   readonly seed: number;
+  readonly diagnostics: Diagnostics;
 }
 
 /**
@@ -38,6 +40,7 @@ export function buildCsv(
   lines.push(`# нод пройдено,${meta.nodesVisited}`);
   lines.push(`# seed,${meta.seed}`);
   if (meta.cancelled) lines.push('# ВНИМАНИЕ,обход отменён — данные неполные');
+  lines.push(...explain(meta.diagnostics));
   for (const [rule, total] of totals) {
     lines.push(`# всего срабатываний,${rule},${total},в выборке,${sampled.get(rule)?.length ?? 0}`);
   }

@@ -4,6 +4,7 @@ import { VariableResolver } from '../../src/main/scanner/variables';
 import {
   component,
   frame,
+  instance,
   rectangle,
   resetIds,
   solidPaint,
@@ -40,7 +41,7 @@ async function ctx(
   over: Parameters<typeof makeResolver>[0] = {},
   names: string[] = [],
 ): Promise<ProbeContext> {
-  return { resolver: await makeResolver(over), componentNames: new Set(names) };
+  return { resolver: await makeResolver(over), masterNames: new Set(names) };
 }
 
 describe('пробник: tokens/raw-fill', () => {
@@ -68,6 +69,21 @@ describe('пробник: tokens/raw-fill', () => {
 
   it('молчит на ноде без заливок', async () => {
     expect(check(frame({ name: 'Wrapper' }), 'p', await ctx())).toEqual([]);
+  });
+
+  it('молчит, когда заливка идёт от paint-стиля', async () => {
+    // Регрессия первого боевого прогона: 5798 срабатываний на странице из
+    // библиотечных инстансов, потому что проверка смотрела только переменные.
+    const node = rectangle({ fills: [solidPaint(1, 0, 0)], fillStyleId: 'S:1234' });
+
+    expect(check(node, 'p', await ctx()).filter((h) => h.rule === 'tokens/raw-fill')).toEqual([]);
+  });
+
+  it('молчит внутри инстанса — чинить содержимое инстанса здесь нечем', async () => {
+    const child = rectangle({ name: 'Vector', fills: [solidPaint(0, 0, 0)] });
+    tree(instance({ name: 'Icon' }), [child]);
+
+    expect(check(child, 'p', await ctx()).filter((h) => h.rule === 'tokens/raw-fill')).toEqual([]);
   });
 });
 
@@ -119,6 +135,15 @@ describe('пробник: tokens/layer-violation', () => {
   it('молчит на том же биндинге вне компонента', async () => {
     const node = rectangle({ boundVariables: { fills: [variableAlias('V:1')] } });
     const hits = check(node, 'p', await ctx(primitives));
+
+    expect(hits.filter((h) => h.rule === 'tokens/layer-violation')).toEqual([]);
+  });
+
+  it('молчит внутри инстанса — нарушение живёт в мастере, а не здесь', async () => {
+    const child = rectangle({ boundVariables: { fills: [variableAlias('V:1')] } });
+    tree(instance({ name: 'Button' }), [child]);
+
+    const hits = check(child, 'p', await ctx(primitives));
 
     expect(hits.filter((h) => h.rule === 'tokens/layer-violation')).toEqual([]);
   });

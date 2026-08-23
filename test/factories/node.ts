@@ -31,6 +31,8 @@ interface BaseOverrides {
   visible?: boolean;
   opacity?: number;
   fills?: readonly Paint[];
+  /** '' — стиля нет. Непустая строка — заливка идёт от paint-стиля. */
+  fillStyleId?: string;
   boundVariables?: Record<string, VariableAlias | readonly VariableAlias[]>;
   parent?: BaseNode | null;
   children?: readonly SceneNode[];
@@ -45,6 +47,7 @@ function base(type: string, o: BaseOverrides) {
     opacity: o.opacity ?? 1,
     removed: false,
     fills: o.fills ?? [],
+    fillStyleId: o.fillStyleId ?? '',
     boundVariables: o.boundVariables ?? {},
     parent: o.parent ?? null,
     children: o.children ?? [],

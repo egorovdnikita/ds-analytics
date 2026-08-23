@@ -83,3 +83,49 @@ export const PROFILE_LABEL: Readonly<Record<FileProfile, string>> = {
   'no-design-system': 'Файл без дизайн-системы',
   unclear: 'Профиль не определён',
 };
+
+/* ================= Adoption ================= */
+
+/** Откуда пришёл мастер компонента. */
+export type MasterOrigin = 'library' | 'local' | 'unknown';
+
+export interface MasterUsage {
+  readonly key: string;
+  readonly name: string;
+  readonly origin: MasterOrigin;
+  /** Сколько инстансов верхнего уровня ссылается на этот мастер. */
+  readonly instances: number;
+}
+
+export interface LibrarySource {
+  readonly libraryName: string;
+  readonly collections: number;
+  readonly variables: number;
+}
+
+export interface CollectionUsage {
+  readonly name: string;
+  /** Имя библиотеки или «Локальная». */
+  readonly source: string;
+  readonly variables: number;
+  readonly isLocal: boolean;
+}
+
+export interface Adoption {
+  /** Инстансы верхнего уровня: вложенные делят мастера с родителем. */
+  readonly instancesCounted: number;
+  readonly mastersTotal: number;
+  readonly fromLibrary: number;
+  readonly local: number;
+  readonly unknown: number;
+  /** Кандидаты в оторванные инстансы — доля системы, потерянная при detach. */
+  readonly detachedCandidates: number;
+  readonly masters: readonly MasterUsage[];
+  readonly libraries: readonly LibrarySource[];
+  readonly collections: readonly CollectionUsage[];
+  /** Нод с биндингом на библиотечную переменную. */
+  readonly nodesOnLibraryVariable: number;
+  readonly nodesOnLocalVariable: number;
+  /** Нод, которые могли бы иметь переменную (есть заливка), но не имеют. */
+  readonly nodesWithoutVariable: number;
+}

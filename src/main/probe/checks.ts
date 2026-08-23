@@ -43,6 +43,11 @@ function toHex(color: RGB): string {
   return `#${part(color.r)}${part(color.g)}${part(color.b)}`.toUpperCase();
 }
 
+/** Есть ли у ноды хоть одна видимая заливка — кандидат на токенизацию. */
+export function hasFills(node: SceneNode): boolean {
+  return visibleSolidFills(node).length > 0;
+}
+
 function visibleSolidFills(node: SceneNode): SolidPaint[] {
   if (!('fills' in node)) return [];
   // `fills` может быть figma.mixed — Array.isArray сужает до any[],

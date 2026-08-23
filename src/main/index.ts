@@ -14,6 +14,7 @@ import { VariableResolver } from './scanner/variables';
 import {
   allAliases,
   check,
+  hasFills,
   hasFillStyle,
   insideComponentMaster,
   insideInstance,
@@ -23,6 +24,7 @@ import {
 } from './probe/checks';
 import { emptyDiagnostics } from './probe/diagnostics';
 import { buildCsv } from './probe/report';
+import { buildAdoption, type MasterRef } from './probe/adoption';
 import { buildSummary } from './probe/summary';
 import { sample } from './probe/sample';
 
@@ -115,14 +117,21 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
   const masterNames = new Set(
     nodes.filter(({ node }) => node.type === 'COMPONENT').map(({ node }) => node.name),
   );
+  const masterRefs: (MasterRef | null)[] = [];
   // Без этого detached-instance не мог сработать ни разу на файле-потребителе:
   // локальных COMPONENT там нет, мастера лежат в библиотеке.
   for (const instance of topLevelInstances) {
     try {
       const master = await instance.getMainComponentAsync();
-      if (master !== null) masterNames.add(master.name);
+      if (master === null) {
+        masterRefs.push(null);
+        continue;
+      }
+      masterNames.add(master.name);
+      masterRefs.push({ key: master.key, name: master.name, remote: master.remote });
     } catch {
       // Недоступный мастер — не повод ронять замер.
+      masterRefs.push(null);
     }
   }
   diagnostics.masterNames = masterNames.size;
@@ -136,6 +145,22 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
   diagnostics.collectionNames = [...resolver.collectionNames];
   diagnostics.layeredCollectionNames = [...resolver.layeredCollectionNames()];
   diagnostics.variablesByLayer = { ...resolver.countByLayer() };
+
+  // Adoption считается по нодам: сколько живёт на библиотечных переменных,
+  // сколько на локальных, а сколько имеет заливку вообще без переменной.
+  let onLibraryVariable = 0;
+  let onLocalVariable = 0;
+  let withoutVariable = 0;
+  for (const { node } of nodes) {
+    const aliases = allAliases(node);
+    if (aliases.length === 0) {
+      if (!insideInstance(node) && hasFills(node)) withoutVariable++;
+      continue;
+    }
+    const anyLocal = aliases.some((alias) => resolver.isLocal(alias.id));
+    if (anyLocal) onLocalVariable++;
+    else onLibraryVariable++;
+  }
 
   // Фаза 4 — синхронный прогон.
   const byRule = new Map<ProbeRuleId, Hit[]>(PROBE_RULES.map((rule) => [rule, []]));
@@ -162,6 +187,17 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
       seed,
       diagnostics,
     }),
+    adoption: await buildAdoption(
+      {
+        masterRefs,
+        detachedCandidates: byRule.get('components/detached-instance')?.length ?? 0,
+        resolver,
+        nodesOnLibraryVariable: onLibraryVariable,
+        nodesOnLocalVariable: onLocalVariable,
+        nodesWithoutVariable: withoutVariable,
+      },
+      figma.teamLibrary,
+    ),
     summary: buildSummary({
       fileName: figma.root.name,
       scope,

@@ -40,6 +40,16 @@ interface CollectionInfo {
   readonly id: string;
   readonly name: string;
   readonly layer: TokenLayer | null;
+  /** Ключ коллекции — по нему она сопоставляется с библиотекой-источником. */
+  readonly key: string;
+  readonly isLocal: boolean;
+}
+
+export interface CollectionUsageInfo {
+  readonly name: string;
+  readonly key: string;
+  readonly isLocal: boolean;
+  readonly variables: number;
 }
 
 const LAYERS: readonly TokenLayer[] = ['primitives', 'semantic', 'component'];
@@ -71,6 +81,8 @@ export class VariableResolver {
         id: collection.id,
         name: collection.name,
         layer: resolver.#layerOfName(collection.name),
+        key: collection.key,
+        isLocal: true,
       });
     }
 
@@ -151,6 +163,8 @@ export class VariableResolver {
         id: collection.id,
         name: collection.name,
         layer: this.#layerOfName(collection.name),
+        key: collection.key,
+        isLocal: !collection.remote,
       });
     } catch {
       // Коллекция недоступна — слой не определить, и это нормально.
@@ -172,6 +186,27 @@ export class VariableResolver {
       else counts[resolved.layer]++;
     }
     return counts;
+  }
+
+  /** Коллекции с числом использованных переменных — основа отчёта adoption. */
+  collectionsWithUsage(): readonly CollectionUsageInfo[] {
+    const counts = new Map<string, number>();
+    for (const resolved of this.#byId.values()) {
+      if (resolved.state === 'unavailable') continue;
+      counts.set(resolved.collectionId, (counts.get(resolved.collectionId) ?? 0) + 1);
+    }
+
+    return [...this.#collections.values()].map((collection) => ({
+      name: collection.name,
+      key: collection.key,
+      isLocal: collection.isLocal,
+      variables: counts.get(collection.id) ?? 0,
+    }));
+  }
+
+  /** Локальная ли переменная — для подсчёта adoption по нодам. */
+  isLocal(id: string): boolean {
+    return this.resolve(id).state === 'local';
   }
 
   /** Имена коллекций, которые удалось сопоставить слою. */

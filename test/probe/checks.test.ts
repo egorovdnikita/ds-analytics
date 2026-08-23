@@ -186,6 +186,26 @@ describe('пробник: components/detached-instance', () => {
     expect(hits.map((h) => h.rule)).toContain('components/detached-instance');
   });
 
+  it('молчит на фрейме внутри определения компонента', async () => {
+    // На файле ДС таких фреймов сотни: это внутренности мастера, а не
+    // оторванные инстансы. 183 срабатывания при 438 компонентах.
+    const inner = frame({ name: 'Button' });
+    tree(component({ name: 'Button' }), [inner]);
+
+    const hits = check(inner, 'p', await ctx({}, ['Button']));
+
+    expect(hits.map((h) => h.rule)).not.toContain('components/detached-instance');
+  });
+
+  it('молчит на фрейме внутри инстанса', async () => {
+    const inner = frame({ name: 'Button' });
+    tree(instance({ name: 'Card' }), [inner]);
+
+    const hits = check(inner, 'p', await ctx({}, ['Button']));
+
+    expect(hits.map((h) => h.rule)).not.toContain('components/detached-instance');
+  });
+
   it('молчит, когда мастера с таким именем нет', async () => {
     const hits = check(frame({ name: 'Button' }), 'p', await ctx({}, ['Card']));
     expect(hits.map((h) => h.rule)).not.toContain('components/detached-instance');

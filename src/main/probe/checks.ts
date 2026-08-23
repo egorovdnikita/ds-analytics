@@ -192,7 +192,15 @@ export function check(node: SceneNode, pageId: string, ctx: ProbeContext): Hit[]
   // --- components/detached-instance ---
   // Самая слабая эвристика каталога, и включена намеренно: если она провалится
   // по сигналу, лучше узнать это здесь, а не после релиза.
-  if (node.type === 'FRAME' && ctx.masterNames.has(node.name)) {
+  // Фреймы внутри определения компонента и внутри инстанса исключены:
+  // это внутренности мастера, а не оторванный инстанс. Найдено замером на
+  // файле дизайн-системы — 183 срабатывания при 438 локальных компонентах.
+  if (
+    node.type === 'FRAME' &&
+    ctx.masterNames.has(node.name) &&
+    !insideComponentMaster(node) &&
+    !insideInstance(node)
+  ) {
     hits.push({
       rule: 'components/detached-instance',
       ...at,

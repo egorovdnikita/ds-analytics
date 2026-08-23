@@ -113,3 +113,33 @@ describe('диагностика в шапке', () => {
     expect(csv).toContain('# нод со стилем заливки,4200');
   });
 });
+
+describe('имена коллекций', () => {
+  const withNames = (collectionNames: string[], nodesWithAlias = 100) =>
+    buildCsv(new Map(), new Map(), {
+      ...meta,
+      diagnostics: { ...emptyDiagnostics(), collectionNames, nodesWithAlias, masterNames: 1 },
+    });
+
+  it('схлопывает одинаковые имена в «Имя ×N»', () => {
+    // Боевой файл: три разные коллекции, все названные «Collection 1».
+    // Факт терять нельзя, печатать трижды — бессмысленно.
+    expect(withNames(['Collection 1', 'Collection 1', 'Collection 1', 'Grid'])).toContain(
+      '# имена коллекций,Collection 1 ×3 | Grid',
+    );
+  });
+
+  it('сообщает, что по именам коллекций слои не читаются', () => {
+    const csv = withNames(['◐ Mode', '][ Grid', 'Collection 1', 'Theme colors']);
+
+    // «Theme colors» содержит корень theme — намёк на слоистость есть,
+    // поэтому вывод не должен срабатывать.
+    expect(csv).not.toContain('не читаются как слои');
+  });
+
+  it('срабатывает, когда намёка на слои нет вовсе', () => {
+    expect(withNames(['Collection 1', 'Grid', 'Mode'])).toContain(
+      '# ВЫВОД,имена коллекций не читаются как слои ДС — layer-violation потребует ручной разметки на каждом файле',
+    );
+  });
+});

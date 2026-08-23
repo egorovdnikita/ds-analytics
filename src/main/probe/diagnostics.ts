@@ -24,6 +24,29 @@ export interface Diagnostics {
   collectionNames: string[];
 }
 
+/**
+ * Грубая проверка: похожи ли имена коллекций на разметку по слоям.
+ *
+ * Ищем корни, а не точные имена: на этом шаге важно не сопоставить слой,
+ * а понять, есть ли вообще намёк на слоистую структуру.
+ */
+function looksLayered(names: readonly string[]): boolean {
+  const roots = [
+    'primitive',
+    'palette',
+    'core',
+    'semantic',
+    'theme',
+    'token',
+    'component',
+    'alias',
+  ];
+  return names.some((name) => {
+    const lower = name.toLowerCase();
+    return roots.some((root) => lower.includes(root));
+  });
+}
+
 export function emptyDiagnostics(): Diagnostics {
   return {
     nodesTotal: 0,
@@ -46,6 +69,22 @@ export function emptyDiagnostics(): Diagnostics {
  * Строки-подсказки не украшение: без них ноль в отчёте читается как
  * «проблем нет», а он чаще означает «здесь нечего искать».
  */
+/**
+ * Схлопывает одинаковые имена в «Имя ×N».
+ *
+ * Несколько коллекций с одним именем — не ошибка вывода, а факт о файле:
+ * три разные коллекции, все названные «Collection 1». Терять этот факт
+ * нельзя, но и печатать имя трижды подряд бессмысленно.
+ */
+function formatCollectionNames(names: readonly string[]): string {
+  if (names.length === 0) return '—';
+
+  const counts = new Map<string, number>();
+  for (const name of names) counts.set(name, (counts.get(name) ?? 0) + 1);
+
+  return [...counts].map(([name, count]) => (count > 1 ? `${name} ×${count}` : name)).join(' | ');
+}
+
 export function explain(d: Diagnostics): string[] {
   const lines: string[] = [
     `# нод всего,${d.nodesTotal}`,
@@ -55,7 +94,7 @@ export function explain(d: Diagnostics): string[] {
     `# нод с биндингом переменной,${d.nodesWithAlias}`,
     `# нод со стилем заливки,${d.nodesWithFillStyle}`,
     `# локальных коллекций,${d.localCollections},переменных,${d.localVariables}`,
-    `# имена коллекций,${d.collectionNames.join(' | ') || '—'}`,
+    `# имена коллекций,${formatCollectionNames(d.collectionNames)}`,
   ];
 
   if (d.nodesWithAlias === 0) {
@@ -69,6 +108,14 @@ export function explain(d: Diagnostics): string[] {
   if (d.collectionNames.length === 0 && d.nodesWithAlias > 0) {
     lines.push(
       '# ВЫВОД,коллекции переменных не разрезолвились — слой определить нельзя, layer-violation неприменим',
+    );
+  }
+  // Разметка слоёв — главный вопрос шага A2 протокола. Ответ на него даёт
+  // не число коллекций, а их имена: если по ним слой не читается, правило
+  // layer-violation неприменимо из коробки на любом файле этой команды.
+  if (d.collectionNames.length > 0 && !looksLayered(d.collectionNames)) {
+    lines.push(
+      '# ВЫВОД,имена коллекций не читаются как слои ДС — layer-violation потребует ручной разметки на каждом файле',
     );
   }
   if (d.localComponents === 0) {

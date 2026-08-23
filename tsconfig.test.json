@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2020"],
+    "types": ["@figma/plugin-typings", "vitest/globals", "node"],
+    "noEmit": true
+  },
+  "include": ["test/**/*.ts", "src/main/**/*.ts", "src/shared/**/*.ts", "*.config.ts", "*.mjs"]
+}

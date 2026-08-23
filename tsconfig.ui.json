@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": [],
+    "noEmit": true
+  },
+  "include": ["src/ui/**/*.ts", "src/ui/**/*.tsx", "src/ui/**/*.d.ts", "src/shared/**/*.ts"]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "Design System Auditor",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/index.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "reasoning": "Плагин работает полностью локально. Содержимое файла не покидает Figma."
+  },
+  "capabilities": [],
+  "enableProposedApi": false
+}

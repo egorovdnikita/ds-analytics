@@ -54,7 +54,7 @@ npm run build      # затем Plugins -> Development -> Import plugin from man
 
 ## Tech stack
 
-TypeScript (strict) · Figma Plugin API · React 18 + Vite · Tailwind v3 · Shadcn UI · Vitest
+TypeScript · React + Vite · Tailwind · Shadcn UI · Vitest
 
 Целевой размер UI-бандла — до 500 KB.
 

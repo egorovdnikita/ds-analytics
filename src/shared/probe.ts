@@ -77,11 +77,20 @@ export interface ProbeSummary {
   readonly toJudge: number;
 }
 
+/** Человеческие названия правил. Технический id остаётся в деталях. */
+export const RULE_LABEL: Readonly<Record<ProbeRuleId, string>> = {
+  'tokens/raw-fill': 'цвет без токена',
+  'tokens/layer-violation': 'токен не того уровня',
+  'tokens/broken-alias': 'битые токены',
+  'components/detached-instance': 'оторванные копии',
+  'structure/default-name': 'имена по умолчанию',
+};
+
 export const PROFILE_LABEL: Readonly<Record<FileProfile, string>> = {
-  'library-source': 'Источник библиотеки',
-  consumer: 'Потребитель библиотеки',
-  'no-design-system': 'Файл без дизайн-системы',
-  unclear: 'Профиль не определён',
+  'library-source': 'файл дизайн-системы',
+  consumer: 'файл на библиотеке',
+  'no-design-system': 'файл без дизайн-системы',
+  unclear: 'не понятно',
 };
 
 /* ================= Adoption ================= */

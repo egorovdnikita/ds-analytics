@@ -34,6 +34,16 @@ const LAYER_ROOTS = [
   'alias',
 ];
 
+/** «1 токен», «2 токена», «5 токенов» — иначе отчёт выглядит машинным. */
+function tokens(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return `${n} токенов`;
+  const mod10 = n % 10;
+  if (mod10 === 1) return `${n} токен`;
+  if (mod10 >= 2 && mod10 <= 4) return `${n} токена`;
+  return `${n} токенов`;
+}
+
 function layersReadable(names: readonly string[]): boolean {
   return names.some((name) => LAYER_ROOTS.some((root) => name.toLowerCase().includes(root)));
 }
@@ -42,22 +52,22 @@ function detectProfile(d: Diagnostics): { profile: FileProfile; note: string } {
   if (d.localComponents > 0 && d.localCollections > 0) {
     return {
       profile: 'library-source',
-      note: 'Здесь живут мастера и переменные. Единственный профиль, на котором проверяются правила про слои токенов.',
+      note: 'Здесь живут сами компоненты и токены.',
     };
   }
   if (d.localComponents === 0 && d.instancesTotal > 0) {
     return {
       profile: 'consumer',
-      note: 'Файл собран из библиотечных инстансов. Мастера и переменные живут в другом файле — правила про компоненты и слои здесь проверить нельзя.',
+      note: 'Собран из копий библиотеки. Сами компоненты и токены лежат в другом файле.',
     };
   }
   if (d.instancesTotal === 0 && d.nodesWithAlias === 0) {
     return {
       profile: 'no-design-system',
-      note: 'Ни инстансов, ни переменных. Профиль «помойка» из протокола: проверяет, не захлебнётся ли отчёт от объёма.',
+      note: 'Ни копий из библиотеки, ни токенов.',
     };
   }
-  return { profile: 'unclear', note: 'Профиль не определился однозначно.' };
+  return { profile: 'unclear', note: 'Не удалось определить.' };
 }
 
 function outcomeFor(
@@ -72,21 +82,21 @@ function outcomeFor(
   switch (rule) {
     case 'tokens/layer-violation': {
       if (d.nodesWithAlias === 0) {
-        return { status: 'not-applicable', reason: 'В скоупе не используются переменные' };
+        return { status: 'not-applicable', reason: 'в файле нет токенов' };
       }
       if (d.collectionNames.length === 0) {
-        return { status: 'not-applicable', reason: 'Коллекции переменных не разрезолвились' };
+        return { status: 'not-applicable', reason: 'не удалось прочитать коллекции токенов' };
       }
       if (!layersOk) {
         return {
           status: 'not-applicable',
-          reason: 'Ни одна коллекция не размечена как слой — размечать нечего',
+          reason: 'коллекции токенов не разложены по уровням',
         };
       }
       if (d.localComponents === 0) {
         return {
           status: 'not-applicable',
-          reason: 'Нет локальных компонентов — правило проверяет мастера, а не инстансы',
+          reason: 'в файле нет своих компонентов',
         };
       }
       // Ноль нарушений при нуле примитивных переменных — не здоровье
@@ -94,7 +104,7 @@ function outcomeFor(
       if (d.variablesByLayer.primitives === 0) {
         return {
           status: 'not-applicable',
-          reason: 'Ни одна переменная не попала в слой примитивов — нарушать нечего',
+          reason: 'нет базовых токенов',
         };
       }
       // Правило звучит как «привязался к примитиву ВМЕСТО семантики».
@@ -103,8 +113,7 @@ function outcomeFor(
       if (d.variablesByLayer.semantic === 0) {
         return {
           status: 'not-applicable',
-          reason:
-            'Нет ни одной семантической переменной — правилу не на что указывать как на верную альтернативу',
+          reason: 'нет смысловых токенов — не с чем сравнивать',
         };
       }
       // Разметка на уровне единиц переменных из сотен ничего не покрывает.
@@ -114,37 +123,40 @@ function outcomeFor(
       if (total > 0 && layered / total < MIN_LAYER_COVERAGE) {
         return {
           status: 'not-applicable',
-          reason: `Размечено ${layered} переменных из ${total} — правило покроет ничтожную долю системы`,
+          reason: `по уровням разложено ${tokens(layered)} из ${total} — слишком мало`,
         };
       }
       if (d.nodesInComponentMaster === 0) {
         return {
           status: 'not-applicable',
-          reason: 'Нет нод внутри определений компонентов — проверять негде',
+          reason: 'у компонентов нет содержимого',
         };
       }
       return hits === 0
         ? {
             status: 'empty',
-            note: `${d.nodesInComponentMaster.toLocaleString('ru')} нод в мастерах, ${d.variablesByLayer.primitives} примитивных переменных — прямых биндингов на примитивы нет`,
+            note: `проверили ${d.nodesInComponentMaster.toLocaleString('ru')} слоёв в компонентах — прямых привязок к базовым токенам нет`,
           }
         : measured();
     }
 
     case 'tokens/broken-alias': {
       if (d.nodesWithAlias === 0) {
-        return { status: 'not-applicable', reason: 'В скоупе не используются переменные' };
+        return { status: 'not-applicable', reason: 'в файле нет токенов' };
       }
       return hits === 0
-        ? { status: 'empty', note: `Все ${d.nodesWithAlias} биндингов разрезолвились` }
+        ? {
+            status: 'empty',
+            note: `все ${d.nodesWithAlias.toLocaleString('ru')} привязок на месте`,
+          }
         : measured();
     }
 
     case 'components/detached-instance': {
       if (d.masterNames === 0) {
-        return { status: 'not-applicable', reason: 'Мастеров компонентов не найдено' };
+        return { status: 'not-applicable', reason: 'компонентов не найдено' };
       }
-      return hits === 0 ? { status: 'empty', note: 'Кандидатов не найдено' } : measured();
+      return hits === 0 ? { status: 'empty', note: 'ничего не нашли' } : measured();
     }
 
     // Перечислены явно, а не через default: добавление правила должно
@@ -152,7 +164,7 @@ function outcomeFor(
     // в «всегда применимо».
     case 'tokens/raw-fill':
     case 'structure/default-name':
-      return hits === 0 ? { status: 'empty', note: 'Срабатываний нет' } : measured();
+      return hits === 0 ? { status: 'empty', note: 'ничего не нашли' } : measured();
   }
 }
 
@@ -169,15 +181,15 @@ function layerNote(d: Diagnostics, layersOk: boolean): string {
 
   if (!layersOk) {
     return layersReadable(d.collectionNames)
-      ? 'Ни одна коллекция не легла на слои, хотя в именах есть похожие на слоевые. Проверьте разметку TOKEN_LAYERS: сопоставление идёт по точному имени.'
-      : 'Ни одно имя коллекции не читается как слой ДС. Правило layer-violation потребует ручной разметки на каждом файле — либо неприменимо к этой системе вовсе.';
+      ? 'Названия коллекций похожи на уровни, но ни одна не совпала точно. Проверьте разметку.'
+      : 'Коллекции токенов не разложены по уровням: базовые, смысловые, компонентные. Проверять «токен не того уровня» не на чем.';
   }
 
   const mapped = [...new Set(d.layeredCollectionNames)].join(', ');
-  const head = `На слои легли коллекции: ${mapped}. Размечено ${layered} переменных из ${total} — примитивы ${v.primitives}, семантика ${v.semantic}, компонентные ${v.component}.`;
+  const head = `По уровням разложено ${tokens(layered)} из ${total}. Базовые ${v.primitives}, смысловые ${v.semantic}, компонентные ${v.component}. Коллекции: ${mapped}.`;
 
   if (total > 0 && layered / total < MIN_LAYER_COVERAGE) {
-    return `${head} Это доли процента системы: правило будет проверять почти ничего.`;
+    return `${head} Это доли процента — проверять почти нечего.`;
   }
   return head;
 }

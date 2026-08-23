@@ -43,7 +43,7 @@ describe('различение «пусто» и «не применимо»', (
     const s = build({ nodesWithAlias: 0 }, { 'tokens/layer-violation': 0 });
     expect(outcomeOf(s, 'tokens/layer-violation')).toEqual({
       status: 'not-applicable',
-      reason: 'В скоупе не используются переменные',
+      reason: 'в файле нет токенов',
     });
   });
 
@@ -76,7 +76,7 @@ describe('различение «пусто» и «не применимо»', (
 
     expect(outcomeOf(s, 'tokens/layer-violation')).toMatchObject({
       status: 'not-applicable',
-      reason: 'Нет локальных компонентов — правило проверяет мастера, а не инстансы',
+      reason: 'в файле нет своих компонентов',
     });
   });
 
@@ -99,10 +99,10 @@ describe('различение «пусто» и «не применимо»', (
   it('broken-alias при нуле называет число разрезолвленных биндингов', () => {
     const s = build({ nodesWithAlias: 1619 }, { 'tokens/broken-alias': 0 });
 
-    expect(outcomeOf(s, 'tokens/broken-alias')).toEqual({
-      status: 'empty',
-      note: 'Все 1619 биндингов разрезолвились',
-    });
+    const outcome = outcomeOf(s, 'tokens/broken-alias');
+    expect(outcome.status).toBe('empty');
+    // Без формата числа: toLocaleString('ru') ставит неразрывный пробел.
+    if (outcome.status === 'empty') expect(outcome.note).toContain('привязок на месте');
   });
 
   it('detached-instance без мастеров — не применимо', () => {
@@ -152,7 +152,7 @@ describe('layer-violation: ноль обязан быть проверяемым
 
     expect(outcomeOf(s, 'tokens/layer-violation')).toEqual({
       status: 'not-applicable',
-      reason: 'Ни одна переменная не попала в слой примитивов — нарушать нечего',
+      reason: 'нет базовых токенов',
     });
   });
 
@@ -183,8 +183,8 @@ describe('layer-violation: ноль обязан быть проверяемым
     if (outcome.status === 'empty') {
       // Без формата числа: toLocaleString('ru') ставит неразрывный пробел,
       // и сравнение с обычным пробелом в литерале молча не сойдётся.
-      expect(outcome.note).toContain('нод в мастерах');
-      expect(outcome.note).toContain('12 примитивных переменных');
+      expect(outcome.note).toContain('слоёв в компонентах');
+      expect(outcome.note).toContain('прямых привязок к базовым токенам нет');
     }
   });
 
@@ -194,8 +194,8 @@ describe('layer-violation: ноль обязан быть проверяемым
       variablesByLayer: { primitives: 12, semantic: 40, component: 3, unmapped: 100 },
     });
 
-    expect(s.layerNote).toContain('На слои легли коллекции: Primitives');
-    expect(s.layerNote).toContain('Размечено 55 переменных из 155');
+    expect(s.layerNote).toContain('Коллекции: Primitives');
+    expect(s.layerNote).toContain('По уровням разложено 55 токенов из 155');
   });
 });
 
@@ -221,8 +221,7 @@ describe('layer-violation на боевых цифрах', () => {
 
     expect(outcomeOf(s, 'tokens/layer-violation')).toEqual({
       status: 'not-applicable',
-      reason:
-        'Нет ни одной семантической переменной — правилу не на что указывать как на верную альтернативу',
+      reason: 'нет смысловых токенов — не с чем сравнивать',
     });
   });
 
@@ -249,7 +248,7 @@ describe('layer-violation на боевых цифрах', () => {
 
     expect(outcomeOf(s, 'tokens/layer-violation')).toMatchObject({
       status: 'not-applicable',
-      reason: 'Размечено 5 переменных из 796 — правило покроет ничтожную долю системы',
+      reason: 'по уровням разложено 5 токенов из 796 — слишком мало',
     });
   });
 
@@ -278,8 +277,8 @@ describe('текст про слои не врёт', () => {
     });
 
     expect(s.layersReadable).toBe(false);
-    expect(s.layerNote).toContain('Ни одна коллекция не легла на слои');
-    expect(s.layerNote).not.toContain('легли коллекции: .');
+    expect(s.layerNote).toContain('Названия коллекций похожи на уровни');
+    expect(s.layerNote).not.toContain('Коллекции: .');
   });
 
   it('символическое покрытие проговаривается словами', () => {
@@ -288,7 +287,25 @@ describe('текст про слои не врёт', () => {
       variablesByLayer: { primitives: 1, semantic: 0, component: 0, unmapped: 795 },
     });
 
-    expect(s.layerNote).toContain('Размечено 1 переменных из 796');
+    expect(s.layerNote).toContain('По уровням разложено 1 токен из 796');
     expect(s.layerNote).toContain('доли процента');
+  });
+});
+
+describe('склонения', () => {
+  it.each([
+    [1, '1 токен'],
+    [2, '2 токена'],
+    [5, '5 токенов'],
+    [11, '11 токенов'],
+    [21, '21 токен'],
+    [104, '104 токена'],
+  ])('%i → «%s»', (primitives, expected) => {
+    const s = build({
+      layeredCollectionNames: ['Primitives'],
+      variablesByLayer: { primitives, semantic: 0, component: 0, unmapped: 0 },
+    });
+
+    expect(s.layerNote).toContain(`разложено ${expected} из`);
   });
 });

@@ -91,3 +91,38 @@ export function tree<T extends { children?: unknown }>(parent: T, children: Scen
   }
   return parent;
 }
+
+interface PageOverrides {
+  id?: string;
+  name?: string;
+  children?: readonly SceneNode[];
+  /** Счётчик вызовов loadAsync — ленивую загрузку надо уметь проверять. */
+  onLoad?: () => void;
+}
+
+export function page(o: PageOverrides = {}) {
+  const node = {
+    type: 'PAGE',
+    id: o.id ?? nextId(),
+    name: o.name ?? 'Page 1',
+    removed: false,
+    children: o.children ?? [],
+    loadAsync: () => {
+      o.onLoad?.();
+      return Promise.resolve();
+    },
+  };
+  for (const child of node.children) {
+    (child as { parent: unknown }).parent = node;
+  }
+  return node as unknown as PageNode;
+}
+
+export function document(pages: readonly PageNode[]) {
+  return { type: 'DOCUMENT', id: '0:0', name: 'Document', children: pages } as unknown as DocumentNode;
+}
+
+/** Строит плоскую пачку прямоугольников — для проверки чанкинга. */
+export function manyRectangles(count: number): SceneNode[] {
+  return Array.from({ length: count }, (_, i) => rectangle({ name: `Rect ${i}` }));
+}

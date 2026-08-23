@@ -173,7 +173,8 @@
 
 - [x] `package.json`, TS strict + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` в `tsconfig.base.json`
 - [x] `@figma/plugin-typings` — только в `tsconfig.main.json` и `tsconfig.test.json`
-- [x] `manifest.json`: `editorType`, `documentAccess: "dynamic-page"`, `networkAccess: { allowedDomains: ["none"] }`
+- [x] `manifest.json`: `editorType`, `documentAccess: "dynamic-page"`, `networkAccess: { allowedDomains: ["none"] }`, `permissions: ["teamlibrary"]`
+- Разрешение `teamlibrary` добавлено после боевого прогона: без него `figma.teamLibrary` **бросает исключение при обращении к свойству**, а не возвращает пустоту. Отражено в [PRIVACY.md](../PRIVACY.md) — оно расширяет то, что плагин читает
 - [x] esbuild → `dist/code.js` (IIFE, es2017, `platform: neutral`) — `scripts/build-main.mjs`
 - [x] Vite + `vite-plugin-singlefile` → `dist/index.html`
 - [x] `scripts/size-check.mjs` — сборка падает при выходе за 500 KB

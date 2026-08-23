@@ -15,6 +15,7 @@ import {
   allAliases,
   check,
   hasFillStyle,
+  insideComponentMaster,
   insideInstance,
   PROBE_RULES,
   type Hit,
@@ -82,6 +83,7 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
       for (const alias of aliases) aliasIds.add(alias.id);
 
       if (hasFillStyle(node)) diagnostics.nodesWithFillStyle++;
+      if (insideComponentMaster(node)) diagnostics.nodesInComponentMaster++;
       if (node.type === 'COMPONENT') diagnostics.localComponents++;
 
       if (node.type === 'INSTANCE') {
@@ -132,6 +134,8 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
   // локальных нет вовсе, а ответ на вопрос «различимы ли слои» нужен именно
   // по тем коллекциям, которые файл реально использует.
   diagnostics.collectionNames = [...resolver.collectionNames];
+  diagnostics.layeredCollectionNames = [...resolver.layeredCollectionNames()];
+  diagnostics.variablesByLayer = { ...resolver.countByLayer() };
 
   // Фаза 4 — синхронный прогон.
   const byRule = new Map<ProbeRuleId, Hit[]>(PROBE_RULES.map((rule) => [rule, []]));

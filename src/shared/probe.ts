@@ -35,6 +35,12 @@ export interface Diagnostics {
   localCollections: number;
   localVariables: number;
   collectionNames: string[];
+  /** Имена коллекций, которые удалось сопоставить слою ДС. */
+  layeredCollectionNames: string[];
+  /** Сколько разрезолвленных переменных попало в каждый слой. */
+  variablesByLayer: { primitives: number; semantic: number; component: number; unmapped: number };
+  /** Нод внутри определений компонентов — область действия layer-violation. */
+  nodesInComponentMaster: number;
 }
 
 /**

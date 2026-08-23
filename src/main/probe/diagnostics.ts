@@ -44,6 +44,9 @@ export function emptyDiagnostics(): Diagnostics {
     localCollections: 0,
     localVariables: 0,
     collectionNames: [],
+    layeredCollectionNames: [],
+    variablesByLayer: { primitives: 0, semantic: 0, component: 0, unmapped: 0 },
+    nodesInComponentMaster: 0,
   };
 }
 
@@ -79,6 +82,9 @@ export function explain(d: Diagnostics): string[] {
     `# нод со стилем заливки,${d.nodesWithFillStyle}`,
     `# локальных коллекций,${d.localCollections},переменных,${d.localVariables}`,
     `# имена коллекций,${formatCollectionNames(d.collectionNames)}`,
+    `# коллекции, легшие на слои,${formatCollectionNames(d.layeredCollectionNames)}`,
+    `# переменных по слоям,примитивы ${d.variablesByLayer.primitives},семантика ${d.variablesByLayer.semantic},компонентные ${d.variablesByLayer.component},без слоя ${d.variablesByLayer.unmapped}`,
+    `# нод внутри определений компонентов,${d.nodesInComponentMaster}`,
   ];
 
   if (d.nodesWithAlias === 0) {

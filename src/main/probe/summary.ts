@@ -86,7 +86,26 @@ function outcomeFor(
           reason: 'Нет локальных компонентов — правило проверяет мастера, а не инстансы',
         };
       }
-      return hits === 0 ? { status: 'empty', note: 'Нарушений слоёв не найдено' } : measured();
+      // Ноль нарушений при нуле примитивных переменных — не здоровье
+      // системы, а пустота: нарушать было нечего.
+      if (d.variablesByLayer.primitives === 0) {
+        return {
+          status: 'not-applicable',
+          reason: 'Ни одна переменная не попала в слой примитивов — нарушать нечего',
+        };
+      }
+      if (d.nodesInComponentMaster === 0) {
+        return {
+          status: 'not-applicable',
+          reason: 'Нет нод внутри определений компонентов — проверять негде',
+        };
+      }
+      return hits === 0
+        ? {
+            status: 'empty',
+            note: `${d.nodesInComponentMaster.toLocaleString('ru')} нод в мастерах, ${d.variablesByLayer.primitives} примитивных переменных — прямых биндингов на примитивы нет`,
+          }
+        : measured();
     }
 
     case 'tokens/broken-alias': {
@@ -112,6 +131,24 @@ function outcomeFor(
     case 'structure/default-name':
       return hits === 0 ? { status: 'empty', note: 'Срабатываний нет' } : measured();
   }
+}
+
+/**
+ * Текст про слои называет конкретные коллекции, а не «намёк есть».
+ *
+ * «В именах есть намёк на слои» — бесполезная формулировка: она не говорит,
+ * какие именно коллекции легли на слои, и её нельзя проверить глазами.
+ */
+function layerNote(d: Diagnostics, layersOk: boolean): string {
+  if (!layersOk) {
+    return 'Ни одно имя коллекции не читается как слой ДС. Правило layer-violation потребует ручной разметки на каждом файле — либо неприменимо к этой системе вовсе.';
+  }
+
+  const mapped = [...new Set(d.layeredCollectionNames)];
+  const v = d.variablesByLayer;
+  const total = v.primitives + v.semantic + v.component;
+
+  return `На слои легли коллекции: ${mapped.join(', ')}. Переменных размечено ${total} из ${total + v.unmapped} — примитивы ${v.primitives}, семантика ${v.semantic}, компонентные ${v.component}.`;
 }
 
 export function buildSummary(input: {
@@ -147,9 +184,7 @@ export function buildSummary(input: {
     rules,
     diagnostics: d,
     layersReadable: layersOk,
-    layerNote: layersOk
-      ? 'В именах коллекций есть намёк на слои — разметку TOKEN_LAYERS имеет смысл настроить под них.'
-      : 'Имена коллекций не читаются как слои ДС. Правило layer-violation потребует ручной разметки на каждом файле — либо не применимо к этой системе вовсе.',
+    layerNote: layerNote(d, layersOk),
     toJudge,
   };
 }

@@ -77,14 +77,17 @@ describe('различение «пусто» и «не применимо»', (
 
   it('layer-violation при полном наборе условий и нуле — это «пусто», а не «не применимо»', () => {
     const s = build(
-      { nodesWithAlias: 100, localComponents: 5, collectionNames: ['Primitives', 'Semantic'] },
+      {
+        nodesWithAlias: 100,
+        localComponents: 5,
+        collectionNames: ['Primitives', 'Semantic'],
+        nodesInComponentMaster: 80,
+        variablesByLayer: { primitives: 4, semantic: 9, component: 0, unmapped: 2 },
+      },
       { 'tokens/layer-violation': 0 },
     );
 
-    expect(outcomeOf(s, 'tokens/layer-violation')).toEqual({
-      status: 'empty',
-      note: 'Нарушений слоёв не найдено',
-    });
+    expect(outcomeOf(s, 'tokens/layer-violation')).toMatchObject({ status: 'empty' });
   });
 
   it('broken-alias при нуле называет число разрезолвленных биндингов', () => {
@@ -123,5 +126,69 @@ describe('сколько судить', () => {
   it('ноль к судейству, когда применимых срабатываний нет', () => {
     const s = build({ nodesWithAlias: 0 }, { 'tokens/layer-violation': 0 });
     expect(s.toJudge).toBe(0);
+  });
+});
+
+describe('layer-violation: ноль обязан быть проверяемым', () => {
+  const layered = {
+    nodesWithAlias: 20744,
+    localComponents: 9790,
+    collectionNames: ['Primitives', 'Kit'],
+    layeredCollectionNames: ['Primitives'],
+    nodesInComponentMaster: 40000,
+  };
+
+  it('без примитивных переменных ноль — это «не применимо», а не «чисто»', () => {
+    const s = build(
+      { ...layered, variablesByLayer: { primitives: 0, semantic: 5, component: 0, unmapped: 90 } },
+      { 'tokens/layer-violation': 0 },
+    );
+
+    expect(outcomeOf(s, 'tokens/layer-violation')).toEqual({
+      status: 'not-applicable',
+      reason: 'Ни одна переменная не попала в слой примитивов — нарушать нечего',
+    });
+  });
+
+  it('без нод в мастерах ноль — тоже «не применимо»', () => {
+    const s = build(
+      {
+        ...layered,
+        nodesInComponentMaster: 0,
+        variablesByLayer: { primitives: 12, semantic: 5, component: 0, unmapped: 3 },
+      },
+      { 'tokens/layer-violation': 0 },
+    );
+
+    expect(outcomeOf(s, 'tokens/layer-violation')).toMatchObject({ status: 'not-applicable' });
+  });
+
+  it('при полном наборе условий ноль — осмысленное «чисто» с цифрами', () => {
+    const s = build(
+      {
+        ...layered,
+        variablesByLayer: { primitives: 12, semantic: 40, component: 3, unmapped: 100 },
+      },
+      { 'tokens/layer-violation': 0 },
+    );
+
+    const outcome = outcomeOf(s, 'tokens/layer-violation');
+    expect(outcome.status).toBe('empty');
+    if (outcome.status === 'empty') {
+      // Без формата числа: toLocaleString('ru') ставит неразрывный пробел,
+      // и сравнение с обычным пробелом в литерале молча не сойдётся.
+      expect(outcome.note).toContain('нод в мастерах');
+      expect(outcome.note).toContain('12 примитивных переменных');
+    }
+  });
+
+  it('текст про слои называет конкретные коллекции, а не «намёк есть»', () => {
+    const s = build({
+      ...layered,
+      variablesByLayer: { primitives: 12, semantic: 40, component: 3, unmapped: 100 },
+    });
+
+    expect(s.layerNote).toContain('На слои легли коллекции: Primitives');
+    expect(s.layerNote).toContain('Переменных размечено 55 из 155');
   });
 });

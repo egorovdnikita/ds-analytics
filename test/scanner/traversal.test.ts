@@ -1,6 +1,14 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { traverse, type ScanTarget } from '../../src/main/scanner/traversal';
-import { document, frame, manyRectangles, page, rectangle, resetIds, tree } from '../factories/node';
+import {
+  document,
+  frame,
+  manyRectangles,
+  page,
+  rectangle,
+  resetIds,
+  tree,
+} from '../factories/node';
 
 /** Считает точки yield вместо реального таймера. */
 function countingYield() {

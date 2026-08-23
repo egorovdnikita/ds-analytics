@@ -32,7 +32,7 @@
 
 ```
 npm ci
-npm run verify     # typecheck + lint + test + build + бюджет размера
+npm run verify     # то же, что гоняет CI: typecheck + lint + format + test + build
 npm run build      # затем Plugins -> Development -> Import plugin from manifest
 ```
 

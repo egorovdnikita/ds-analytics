@@ -119,7 +119,12 @@ export function page(o: PageOverrides = {}) {
 }
 
 export function document(pages: readonly PageNode[]) {
-  return { type: 'DOCUMENT', id: '0:0', name: 'Document', children: pages } as unknown as DocumentNode;
+  return {
+    type: 'DOCUMENT',
+    id: '0:0',
+    name: 'Document',
+    children: pages,
+  } as unknown as DocumentNode;
 }
 
 /** Строит плоскую пачку прямоугольников — для проверки чанкинга. */

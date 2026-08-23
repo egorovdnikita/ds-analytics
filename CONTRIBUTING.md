@@ -4,7 +4,7 @@
 
 ```
 npm ci
-npm run verify     # typecheck + lint + test + build
+npm run verify     # то же, что гоняет CI: typecheck + lint + format + test + build
 npm run dev        # watch-сборка plugin sandbox
 ```
 

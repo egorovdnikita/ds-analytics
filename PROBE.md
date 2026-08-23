@@ -11,12 +11,16 @@
 
 ## Как прогнать
 
+**Нужно десктопное приложение Figma** — в браузере локальные плагины не запускаются.
+
 ```bash
 git checkout spike/signal-probe
 npm ci && npm run build
 ```
 
-Затем в Figma: **Plugins → Development → Import plugin from manifest** → `manifest.json` из корня.
+Затем в Figma: **Plugins → Development → Import plugin from manifest…** → `manifest.json` из корня. Запуск — **Plugins → Development → Design System Auditor**.
+
+Если Figma потребует поле `id` в манифесте — см. раздел «Про поле `id`» в [CONTRIBUTING.md](CONTRIBUTING.md).
 
 1. Открыть боевой файл.
 2. Выбрать скоуп. Начинать со **страницы**: на весь файл имеет смысл идти, только когда понятен порядок величин.

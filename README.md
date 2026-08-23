@@ -23,6 +23,7 @@
 | `scanner/cache.ts`     | Инкрементальная инвалидация по `nodechange`                 |
 | `scanner/variables.ts` | Индекс переменных: `local` / `library` / `unavailable`      |
 | `fixes/journal.ts`     | Собственный откат массового фикса                           |
+| `storage/config.ts`    | Конфиг правил: устойчивый разбор, авторство, лимит          |
 
 Все четыре механизма паспорт декларировал без опоры в Figma API — расхождения найдены аудитом и закрыты решениями в [docs/decisions/](docs/decisions/).
 

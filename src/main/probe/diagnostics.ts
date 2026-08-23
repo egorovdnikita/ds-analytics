@@ -66,9 +66,14 @@ export function explain(d: Diagnostics): string[] {
   if (d.masterNames === 0) {
     lines.push('# ВЫВОД,мастеров компонентов не найдено — detached-instance неприменим здесь');
   }
-  if (d.localCollections === 0) {
+  if (d.collectionNames.length === 0 && d.nodesWithAlias > 0) {
     lines.push(
-      '# ВЫВОД,локальных коллекций нет — разметку слоёв в TOKEN_LAYERS проверять не на чем',
+      '# ВЫВОД,коллекции переменных не разрезолвились — слой определить нельзя, layer-violation неприменим',
+    );
+  }
+  if (d.localComponents === 0) {
+    lines.push(
+      '# ВЫВОД,локальных компонентов нет — это файл-потребитель, layer-violation по мастерам здесь не проверить',
     );
   }
   return lines;

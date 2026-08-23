@@ -126,8 +126,11 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
 
   const collections = await figma.variables.getLocalVariableCollectionsAsync();
   diagnostics.localCollections = collections.length;
-  diagnostics.collectionNames = collections.map((collection) => collection.name);
   diagnostics.localVariables = (await figma.variables.getLocalVariablesAsync()).length;
+  // Имена берём из резолвера, а не из локальных коллекций: на файле-потребителе
+  // локальных нет вовсе, а ответ на вопрос «различимы ли слои» нужен именно
+  // по тем коллекциям, которые файл реально использует.
+  diagnostics.collectionNames = [...resolver.collectionNames];
 
   // Фаза 4 — синхронный прогон.
   const byRule = new Map<ProbeRuleId, Hit[]>(PROBE_RULES.map((rule) => [rule, []]));

@@ -32,6 +32,7 @@ function makeResolver(over: {
           })) as unknown as Variable[],
         ),
       getVariableByIdAsync: () => Promise.resolve(null),
+      getVariableCollectionByIdAsync: () => Promise.resolve(null),
     },
     { primitives: ['Primitives'], semantic: ['Semantic'] },
   );

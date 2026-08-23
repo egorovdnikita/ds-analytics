@@ -22,6 +22,7 @@ import {
 } from './probe/checks';
 import { emptyDiagnostics } from './probe/diagnostics';
 import { buildCsv } from './probe/report';
+import { buildSummary } from './probe/summary';
 import { sample } from './probe/sample';
 
 const UI_SIZE = { width: 480, height: 640 } as const;
@@ -157,9 +158,15 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
       seed,
       diagnostics,
     }),
-    totals: [...totals].map(([rule, count]) => [rule, count] as const),
-    nodesVisited: result.nodesVisited,
-    cancelled: result.cancelled,
+    summary: buildSummary({
+      fileName: figma.root.name,
+      scope,
+      nodesVisited: result.nodesVisited,
+      cancelled: result.cancelled,
+      diagnostics,
+      hits: totals,
+      sampled: new Map([...sampled].map(([rule, hits]) => [rule, hits.length])),
+    }),
   });
 }
 

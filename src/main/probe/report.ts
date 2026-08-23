@@ -5,7 +5,8 @@
  * Формат под вставку в таблицу, а не под чтение глазами в textarea.
  */
 import type { Hit, ProbeRuleId } from './checks';
-import { explain, type Diagnostics } from './diagnostics';
+import type { Diagnostics } from '../../shared/probe';
+import { explain } from './diagnostics';
 
 export const VERDICT_HINT = 'реальная | ложная | намеренная';
 

@@ -5,6 +5,7 @@
  * ВЕТКА spike/signal-probe: типы заточены под пробник замера сигнала.
  * В main не мержится.
  */
+import type { ProbeSummary } from './probe';
 import type { ScanScope } from './types';
 
 /** ui -> main */
@@ -26,8 +27,6 @@ export type MainMessage =
   | {
       readonly type: 'main/scan-finished';
       readonly csv: string;
-      readonly totals: readonly (readonly [string, number])[];
-      readonly nodesVisited: number;
-      readonly cancelled: boolean;
+      readonly summary: ProbeSummary;
     }
   | { readonly type: 'main/error'; readonly message: string };

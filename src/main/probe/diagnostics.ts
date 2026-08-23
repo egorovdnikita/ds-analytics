@@ -1,3 +1,5 @@
+import type { Diagnostics } from '../../shared/probe';
+
 /**
  * Диагностика прогона.
  *
@@ -5,24 +7,6 @@
  * одному нулю невозможно понять, файл чистый или пробник слеп. Счётчики
  * отвечают на этот вопрос до того, как дизайнер сядет судить.
  */
-
-export interface Diagnostics {
-  nodesTotal: number;
-  /** Нод с хотя бы одним биндингом переменной. Ноль означает: переменных в файле не используют. */
-  nodesWithAlias: number;
-  /** Нод с привязанным стилем заливки. Их нельзя считать хардкодом. */
-  nodesWithFillStyle: number;
-  /** Нод внутри инстансов — их содержимое приходит из мастера, чинить их здесь нечем. */
-  nodesInsideInstance: number;
-  instancesTotal: number;
-  /** Инстансы верхнего уровня — только для них резолвится мастер. */
-  instancesTopLevel: number;
-  localComponents: number;
-  masterNames: number;
-  localCollections: number;
-  localVariables: number;
-  collectionNames: string[];
-}
 
 /**
  * Грубая проверка: похожи ли имена коллекций на разметку по слоям.

@@ -8,22 +8,10 @@
  *
  * Переносить этот код в src/main/rules/ нельзя. Переносятся только цифры.
  */
+import type { ProbeRuleId } from '../../shared/probe';
 import type { VariableResolver } from '../scanner/variables';
 
-export type ProbeRuleId =
-  | 'tokens/raw-fill'
-  | 'tokens/layer-violation'
-  | 'tokens/broken-alias'
-  | 'components/detached-instance'
-  | 'structure/default-name';
-
-export const PROBE_RULES: readonly ProbeRuleId[] = [
-  'tokens/raw-fill',
-  'tokens/layer-violation',
-  'tokens/broken-alias',
-  'components/detached-instance',
-  'structure/default-name',
-];
+export { PROBE_RULES, type ProbeRuleId } from '../../shared/probe';
 
 export interface Hit {
   readonly rule: ProbeRuleId;

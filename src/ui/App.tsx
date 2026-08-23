@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import type { MainMessage, UiMessage } from '../shared/messages';
 import { PROFILE_LABEL, type Adoption, type ProbeSummary } from '../shared/probe';
 import type { ScanScope } from '../shared/types';
-import { Button, Pill } from './parts/primitives';
+import { Button, Pill, Segmented } from './parts/primitives';
 import { ChecksTab, ComponentsTab, SummaryTab, TokensTab } from './parts/tabs';
 
 function send(message: UiMessage): void {
@@ -97,29 +97,49 @@ export function App(): JSX.Element {
   return (
     <div className="relative flex h-screen flex-col bg-canvas">
       <header className="shrink-0 px-4 pt-4">
+        {/* Три строки, а не одна: на 480px имя файла, переключатель охвата и
+            кнопка в один ряд не помещаются — имя схлопывалось в «Дизайн…». */}
         <div className="flex items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[15px] font-medium">{result.summary.fileName}</h1>
-            <p className="mt-0.5 text-[12px] text-ink-faint">
-              {PROFILE_LABEL[result.summary.profile]} ·{' '}
-              {result.summary.nodesVisited.toLocaleString('ru')} слоёв
-            </p>
-          </div>
+          <h1 className="min-w-0 flex-1 truncate text-[15px] font-medium">
+            {result.summary.fileName}
+          </h1>
           <Button onClick={start}>Ещё раз</Button>
         </div>
 
-        <nav className="-mx-1 mt-3 flex gap-1 overflow-x-auto pb-3">
-          {TABS.map((name) => (
-            <button
-              key={name}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] ${
-                tab === name ? 'bg-accent font-medium text-white' : 'bg-white text-ink-soft'
-              }`}
-              onClick={() => setTab(name)}
-            >
-              {name}
-            </button>
-          ))}
+        <div className="mt-2 flex items-center gap-2">
+          <Pill>{PROFILE_LABEL[result.summary.profile]}</Pill>
+          <span className="text-[12px] tabular-nums text-ink-faint">
+            {result.summary.nodesVisited.toLocaleString('ru')} слоёв
+          </span>
+        </div>
+
+        <div className="mt-2.5">
+          <Segmented options={SCOPES} value={scope} onChange={setScope} />
+        </div>
+
+        <nav className="-mx-1 mt-2.5 flex gap-1 overflow-x-auto px-1 pb-3">
+          {TABS.map((name) => {
+            const count = countFor(name, result);
+            const active = tab === name;
+            return (
+              <button
+                key={name}
+                className={`flex shrink-0 items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] ${
+                  active ? 'bg-accent font-medium text-white' : 'bg-white text-ink-soft'
+                }`}
+                onClick={() => setTab(name)}
+              >
+                {name}
+                {count !== null && (
+                  <span
+                    className={`tabular-nums text-[11px] ${active ? 'text-white/70' : 'text-ink-faint'}`}
+                  >
+                    {count.toLocaleString('ru')}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
       </header>
 
@@ -169,7 +189,7 @@ function Start({
               key={item.value}
               disabled={running}
               className={`rounded-full px-3 py-1.5 text-[13px] ${
-                scope === item.value ? 'bg-white font-medium shadow-card' : 'text-ink-soft'
+                scope === item.value ? 'bg-white font-medium' : 'text-ink-soft'
               }`}
               onClick={() => setScope(item.value)}
             >
@@ -207,6 +227,21 @@ function Start({
   );
 }
 
+/** Счётчик на вкладке: сразу видно, где есть что смотреть. */
+function countFor(tab: Tab, result: Result): number | null {
+  switch (tab) {
+    case 'Компоненты':
+      return result.adoption.masters.length;
+    case 'Токены':
+      return result.adoption.collections.length;
+    case 'Проверки':
+      return result.summary.rules.filter((rule) => rule.outcome.status === 'measured').length;
+    case 'Сводка':
+    case 'CSV':
+      return null;
+  }
+}
+
 function Content({
   tab,
   result,
@@ -229,7 +264,7 @@ function Content({
       return (
         <div className="flex h-full flex-col gap-2">
           <textarea
-            className="min-h-0 flex-1 resize-none rounded-card border-0 bg-white p-3 font-mono text-[11px] leading-snug shadow-card"
+            className="min-h-0 flex-1 resize-none rounded-card border-0 bg-white p-3 font-mono text-[11px] leading-snug"
             readOnly
             value={result.csv}
             onFocus={(e) => e.currentTarget.select()}

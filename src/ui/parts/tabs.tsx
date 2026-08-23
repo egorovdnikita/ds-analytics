@@ -1,8 +1,8 @@
 /**
- * Экраны отчёта. Три уровня глубины: сводка → таблицы → карточка по клику.
+ * Экраны отчёта. Три уровня: сводка → таблицы → карточка по клику.
  * Тексты бытовые: «токен», «копия», «библиотека», без терминов из кода.
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   RULE_LABEL,
   type Adoption,
@@ -12,15 +12,19 @@ import {
   type RuleSummary,
 } from '../../shared/probe';
 import {
+  BarCell,
   Button,
   Card,
+  Empty,
   Field,
   Kpi,
   Modal,
   Note,
   pct,
   Pill,
+  Ring,
   Row,
+  Segmented,
   StackedBar,
   Table,
 } from './primitives';
@@ -43,21 +47,23 @@ export function SummaryTab({
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Два кольца — главный ответ файла одним взглядом. */}
+      <Card>
+        <div className="flex items-start justify-around">
+          <Ring
+            value={adoption.fromLibrary}
+            total={instances}
+            caption="компонентов из библиотеки"
+          />
+          <Ring value={onTokens} total={tokenNodes} caption="слоёв на токенах" />
+        </div>
+      </Card>
+
       <div className="grid grid-cols-2 gap-3">
         <Kpi
           label="Компонентов"
           value={adoption.mastersTotal.toLocaleString('ru')}
-          hint={`${instances.toLocaleString('ru')} копий на странице`}
-        />
-        <Kpi
-          label="Из библиотеки"
-          value={pct(adoption.fromLibrary, instances)}
-          hint={`${adoption.fromLibrary.toLocaleString('ru')} копий`}
-        />
-        <Kpi
-          label="На токенах"
-          value={pct(onTokens, tokenNodes)}
-          hint={`${adoption.nodesWithoutVariable.toLocaleString('ru')} слоёв без токена`}
+          hint={`${instances.toLocaleString('ru')} копий`}
         />
         <Kpi
           label="Оторвано"
@@ -66,7 +72,14 @@ export function SummaryTab({
         />
       </div>
 
-      <Card title="Откуда компоненты">
+      <Card
+        title="Откуда компоненты"
+        action={
+          <button className="text-[12px] text-accent-ink" onClick={() => onGoTo('Компоненты')}>
+            все →
+          </button>
+        }
+      >
         <StackedBar
           segments={[
             { label: 'Из библиотеки', value: adoption.fromLibrary, className: 'bg-accent' },
@@ -82,14 +95,16 @@ export function SummaryTab({
             </Note>
           </div>
         )}
-        <div className="mt-3">
-          <Button variant="quiet" onClick={() => onGoTo('Компоненты')}>
-            Все компоненты
-          </Button>
-        </div>
       </Card>
 
-      <Card title="Откуда токены">
+      <Card
+        title="Откуда токены"
+        action={
+          <button className="text-[12px] text-accent-ink" onClick={() => onGoTo('Токены')}>
+            все →
+          </button>
+        }
+      >
         <StackedBar
           segments={[
             {
@@ -105,11 +120,6 @@ export function SummaryTab({
             },
           ]}
         />
-        <div className="mt-3">
-          <Button variant="quiet" onClick={() => onGoTo('Токены')}>
-            Все коллекции
-          </Button>
-        </div>
       </Card>
 
       {adoption.librarySourcesAvailable && adoption.libraries.length > 0 && (
@@ -118,7 +128,13 @@ export function SummaryTab({
             {adoption.libraries.map((library) => (
               <Row
                 key={library.libraryName}
-                cells={[library.libraryName, library.variables.toLocaleString('ru')]}
+                cells={[
+                  library.libraryName,
+                  <BarCell
+                    value={library.variables}
+                    max={Math.max(...adoption.libraries.map((l) => l.variables))}
+                  />,
+                ]}
               />
             ))}
           </Table>
@@ -131,56 +147,117 @@ export function SummaryTab({
         </Card>
       )}
 
-      <Card title="Проверки">
+      <Card
+        title="Проверки"
+        action={
+          <button className="text-[12px] text-accent-ink" onClick={() => onGoTo('Проверки')}>
+            все →
+          </button>
+        }
+      >
         <p className="text-[13px] text-ink-soft">
           {summary.toJudge === 0
             ? 'Проверять на этом файле нечего.'
             : `Нашли ${summary.toJudge.toLocaleString('ru')} мест, которые стоит посмотреть.`}
         </p>
-        <div className="mt-3">
-          <Button variant="quiet" onClick={() => onGoTo('Проверки')}>
-            Смотреть
-          </Button>
-        </div>
       </Card>
     </div>
   );
 }
 
-/* ---------- 2. Таблицы ---------- */
+/* ---------- 2. Компоненты ---------- */
+
+type MasterFilter = 'all' | 'library' | 'local' | 'unknown';
+const MASTER_FILTERS: readonly { value: MasterFilter; label: string }[] = [
+  { value: 'all', label: 'все' },
+  { value: 'library', label: 'из библиотеки' },
+  { value: 'local', label: 'свои' },
+  { value: 'unknown', label: 'без связи' },
+];
+
+const PAGE_SIZE = 25;
 
 export function ComponentsTab({ adoption }: { adoption: Adoption }): JSX.Element {
   const [selected, setSelected] = useState<MasterUsage | null>(null);
+  const [filter, setFilter] = useState<MasterFilter>('all');
+  const [query, setQuery] = useState('');
+  const [limit, setLimit] = useState(PAGE_SIZE);
+
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return adoption.masters.filter(
+      (master) =>
+        (filter === 'all' || master.origin === filter) &&
+        (needle === '' || master.name.toLowerCase().includes(needle)),
+    );
+  }, [adoption.masters, filter, query]);
 
   if (adoption.masters.length === 0) {
-    return (
-      <Card>
-        <Note>Копий компонентов не нашли.</Note>
-      </Card>
-    );
+    return <Empty title="Копий компонентов нет" hint="В этом охвате не нашлось ни одной." />;
   }
+
+  // Масштаб столбцов — по видимым строкам, а не по всему списку. Иначе
+  // после фильтра все полоски схлопываются в невидимые огрызки, и
+  // сравнивать отфильтрованное между собой становится нечем.
+  const max = visible[0]?.instances ?? 1;
 
   return (
     <>
-      <Card>
-        <Table head={['Компонент', 'Копий']}>
-          {adoption.masters.map((master) => (
-            <Row
-              key={master.key}
-              onClick={() => setSelected(master)}
-              cells={[
-                <div className="min-w-0">
-                  <div className="truncate">{master.name}</div>
-                  <div className="mt-1">
-                    <OriginPill origin={master.origin} />
-                  </div>
-                </div>,
-                <span className="font-medium">{master.instances.toLocaleString('ru')}</span>,
-              ]}
+      <div className="flex flex-col gap-3">
+        <Card>
+          <input
+            className="w-full rounded-pill bg-canvas px-3.5 py-2 text-[13px] outline-none placeholder:text-ink-faint"
+            placeholder="Найти компонент"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setLimit(PAGE_SIZE);
+            }}
+          />
+          <div className="mt-3 overflow-x-auto">
+            <Segmented
+              options={MASTER_FILTERS}
+              value={filter}
+              onChange={(value) => {
+                setFilter(value);
+                setLimit(PAGE_SIZE);
+              }}
             />
-          ))}
-        </Table>
-      </Card>
+          </div>
+        </Card>
+
+        {visible.length === 0 ? (
+          <Empty title="Ничего не нашлось" hint="Попробуйте другое название или снимите фильтр." />
+        ) : (
+          <Card>
+            <Table head={['Компонент', 'Копий']}>
+              {visible.slice(0, limit).map((master) => (
+                <Row
+                  key={master.key}
+                  onClick={() => setSelected(master)}
+                  cells={[
+                    <div className="min-w-0">
+                      <div className="truncate">{master.name}</div>
+                      <div className="mt-1">
+                        <OriginPill origin={master.origin} />
+                      </div>
+                    </div>,
+                    <BarCell value={master.instances} max={max} tone={toneFor(master.origin)} />,
+                  ]}
+                />
+              ))}
+            </Table>
+
+            {visible.length > limit && (
+              <div className="mt-3 flex justify-center">
+                <Button variant="quiet" onClick={() => setLimit(limit + PAGE_SIZE * 2)}>
+                  Показать ещё · осталось {(visible.length - limit).toLocaleString('ru')}
+                </Button>
+              </div>
+            )}
+          </Card>
+        )}
+      </div>
 
       {selected !== null && (
         <Modal title={selected.name} onClose={() => setSelected(null)}>
@@ -205,42 +282,47 @@ export function ComponentsTab({ adoption }: { adoption: Adoption }): JSX.Element
   );
 }
 
+/* ---------- 3. Токены ---------- */
+
 export function TokensTab({ adoption }: { adoption: Adoption }): JSX.Element {
   if (adoption.collections.length === 0) {
-    return (
-      <Card>
-        <Note>Коллекций токенов не нашли.</Note>
-      </Card>
-    );
+    return <Empty title="Коллекций токенов нет" hint="В файле не нашлось ни одной переменной." />;
   }
 
+  const max = Math.max(...adoption.collections.map((collection) => collection.variables));
+
   return (
-    <Card>
-      <Table head={['Коллекция', 'Токенов']}>
-        {adoption.collections.map((collection) => (
-          <Row
-            key={`${collection.name}-${collection.source}`}
-            cells={[
-              <div className="min-w-0">
-                <div className="truncate">{collection.name}</div>
-                <div className="mt-1">
-                  <Pill tone={collection.isLocal ? 'plain' : 'accent'}>{collection.source}</Pill>
-                </div>
-              </div>,
-              <span className="font-medium">{collection.variables.toLocaleString('ru')}</span>,
-            ]}
-          />
-        ))}
-      </Table>
-      <div className="mt-3">
-        <Note>
-          «Библиотека не подключена» значит, что токен используется, а его источник файлу
-          недоступен.
-        </Note>
-      </div>
-    </Card>
+    <div className="flex flex-col gap-3">
+      <Card>
+        <Table head={['Коллекция', 'Токенов']}>
+          {adoption.collections.map((collection) => (
+            <Row
+              key={`${collection.name}-${collection.source}`}
+              cells={[
+                <div className="min-w-0">
+                  <div className="truncate">{collection.name}</div>
+                  <div className="mt-1">
+                    <Pill tone={collection.isLocal ? 'plain' : 'accent'}>{collection.source}</Pill>
+                  </div>
+                </div>,
+                <BarCell
+                  value={collection.variables}
+                  max={max}
+                  tone={collection.isLocal ? 'warn' : 'accent'}
+                />,
+              ]}
+            />
+          ))}
+        </Table>
+      </Card>
+      <Note>
+        «Библиотека не подключена» значит, что токен используется, а его источник файлу недоступен.
+      </Note>
+    </div>
   );
 }
+
+/* ---------- 4. Проверки ---------- */
 
 export function ChecksTab({ summary }: { summary: ProbeSummary }): JSX.Element {
   const [selected, setSelected] = useState<RuleSummary | null>(null);
@@ -293,6 +375,12 @@ export function ChecksTab({ summary }: { summary: ProbeSummary }): JSX.Element {
 }
 
 /* ---------- мелочи ---------- */
+
+function toneFor(origin: MasterUsage['origin']): 'accent' | 'warn' | 'faint' {
+  if (origin === 'library') return 'accent';
+  if (origin === 'local') return 'warn';
+  return 'faint';
+}
 
 function OriginPill({ origin }: { origin: MasterUsage['origin'] }): JSX.Element {
   if (origin === 'library') return <Pill tone="accent">из библиотеки</Pill>;

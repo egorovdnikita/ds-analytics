@@ -11,8 +11,8 @@ export default {
         warn: { DEFAULT: '#C08A3E', soft: '#FBF1E2' },
         danger: { DEFAULT: '#C2685F', soft: '#FAEBE9' },
       },
-      borderRadius: { card: '18px' },
-      boxShadow: { card: '0 1px 2px rgba(27,27,26,0.04)' },
+      borderRadius: { card: '18px', pill: '999px' },
+      // Теней нет: карточки отделяются от полотна цветом, а не подъёмом.
     },
   },
   plugins: [],

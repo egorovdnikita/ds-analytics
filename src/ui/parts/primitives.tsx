@@ -6,18 +6,137 @@ import { useEffect, type ReactNode } from 'react';
 
 export function Card({
   title,
+  action,
   children,
   className = '',
 }: {
   title?: string;
+  action?: ReactNode;
   children: ReactNode;
   className?: string;
 }): JSX.Element {
   return (
-    <section className={`rounded-card bg-white p-4 shadow-card ${className}`}>
-      {title !== undefined && <h2 className="mb-3 text-[15px] font-medium">{title}</h2>}
+    <section className={`rounded-card bg-white p-4 ${className}`}>
+      {title !== undefined && (
+        <header className="mb-3 flex items-baseline gap-2">
+          <h2 className="min-w-0 flex-1 text-[15px] font-medium">{title}</h2>
+          {action}
+        </header>
+      )}
       {children}
     </section>
+  );
+}
+
+/**
+ * Кольцо с числом в центре.
+ *
+ * Для одной доли кольцо читается быстрее полосы: глаз хватает заполнение
+ * целиком, а не сравнивает длину с невидимым эталоном.
+ */
+export function Ring({
+  value,
+  total,
+  caption,
+  tone = 'accent',
+}: {
+  value: number;
+  total: number;
+  caption: string;
+  tone?: 'accent' | 'warn';
+}): JSX.Element {
+  const share = total === 0 ? 0 : value / total;
+  const radius = 34;
+  const circumference = 2 * Math.PI * radius;
+  const stroke = tone === 'accent' ? '#41AE80' : '#C08A3E';
+
+  return (
+    <div className="flex flex-col items-center">
+      <svg viewBox="0 0 80 80" className="h-[84px] w-[84px] -rotate-90">
+        <circle cx="40" cy="40" r={radius} fill="none" stroke="#EFEFEC" strokeWidth="9" />
+        <circle
+          cx="40"
+          cy="40"
+          r={radius}
+          fill="none"
+          stroke={stroke}
+          strokeWidth="9"
+          strokeLinecap="round"
+          strokeDasharray={`${circumference * share} ${circumference}`}
+        />
+      </svg>
+      <div className="-mt-[54px] text-[19px] font-semibold tabular-nums">{pct(value, total)}</div>
+      <div className="mt-[26px] text-center text-[12px] leading-tight text-ink-soft">{caption}</div>
+    </div>
+  );
+}
+
+/**
+ * Столбец внутри ячейки таблицы.
+ *
+ * Даёт сравнение строк между собой без отдельной диаграммы: длина
+ * подложки — это и есть график, а число остаётся точным.
+ */
+export function BarCell({
+  value,
+  max,
+  tone = 'accent',
+}: {
+  value: number;
+  max: number;
+  tone?: 'accent' | 'warn' | 'faint';
+}): JSX.Element {
+  const width = max === 0 ? 0 : Math.max((value / max) * 100, 2);
+  const fills = { accent: 'bg-accent/25', warn: 'bg-warn/25', faint: 'bg-ink-faint/20' };
+
+  return (
+    <div className="relative h-6 min-w-[64px] overflow-hidden rounded-md">
+      <div className={`absolute inset-y-0 left-0 ${fills[tone]}`} style={{ width: `${width}%` }} />
+      <span className="relative flex h-full items-center justify-end px-1.5 text-[13px] font-medium tabular-nums">
+        {value.toLocaleString('ru')}
+      </span>
+    </div>
+  );
+}
+
+/** Сегментированный переключатель — компактнее набора кнопок. */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: readonly { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}): JSX.Element {
+  return (
+    <div className="inline-flex rounded-pill bg-canvas p-0.5">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          className={`rounded-pill px-2.5 py-1 text-[12px] ${
+            value === option.value ? 'bg-white font-medium' : 'text-ink-soft'
+          }`}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Пустое состояние: что случилось и что с этим делать. */
+export function Empty({ title, hint }: { title: string; hint?: string }): JSX.Element {
+  return (
+    <div className="rounded-card bg-white px-4 py-10 text-center">
+      <p className="text-[14px] font-medium">{title}</p>
+      {hint !== undefined && (
+        <p className="mx-auto mt-1.5 max-w-[240px] text-[12px] leading-relaxed text-ink-faint">
+          {hint}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -31,7 +150,7 @@ export function Kpi({
   hint?: string;
 }): JSX.Element {
   return (
-    <div className="rounded-card bg-white p-3 shadow-card">
+    <div className="rounded-card bg-white p-3">
       <div className="text-[11px] text-ink-soft">{label}</div>
       <div className="mt-1 text-[22px] font-semibold leading-none">{value}</div>
       {hint !== undefined && <div className="mt-1.5 text-[11px] text-ink-faint">{hint}</div>}
@@ -191,7 +310,7 @@ export function Modal({
       onClick={onClose}
     >
       <div
-        className="flex max-h-full w-full flex-col rounded-card bg-white shadow-lg"
+        className="flex max-h-full w-full flex-col rounded-card bg-white ring-1 ring-ink/10"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center gap-2 px-4 pb-2 pt-4">

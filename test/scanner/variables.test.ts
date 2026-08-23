@@ -25,6 +25,7 @@ function gateway(over: Partial<VariablesGateway> = {}): VariablesGateway {
     getLocalVariableCollectionsAsync: () => Promise.resolve([]),
     getLocalVariablesAsync: () => Promise.resolve([]),
     getVariableByIdAsync: () => Promise.resolve(null),
+    getVariableCollectionByIdAsync: () => Promise.resolve(null),
     ...over,
   };
 }
@@ -141,5 +142,80 @@ describe('VariableResolver — слои токенов', () => {
     // Коллекция называется «Semantic Legacy» — подстрочный матч дал бы
     // ложную разметку слоя.
     expect(resolver.resolve('V:1')).toMatchObject({ layer: null });
+  });
+});
+
+describe('VariableResolver — коллекции библиотечных переменных', () => {
+  it('догружает коллекцию библиотечной переменной и определяет слой', async () => {
+    // Боевой замер: 9220 нод с биндингами, локальных коллекций 0.
+    // Без догрузки коллекции слой всегда null, и layer-violation молча
+    // не работает на любом файле-потребителе библиотеки.
+    const resolver = await VariableResolver.build(
+      gateway({
+        getVariableByIdAsync: (id) =>
+          Promise.resolve(
+            variable({ id, name: 'gray-500', collectionId: 'C:remote', remote: true }),
+          ),
+        getVariableCollectionByIdAsync: (id) => Promise.resolve(collection(id, 'Primitives')),
+      }),
+      { primitives: ['Primitives'] },
+    );
+
+    await resolver.hydrate(['V:1']);
+
+    expect(resolver.resolve('V:1')).toMatchObject({
+      state: 'library',
+      collectionName: 'Primitives',
+      layer: 'primitives',
+    });
+  });
+
+  it('запрашивает коллекцию один раз на несколько переменных', async () => {
+    let calls = 0;
+    const resolver = await VariableResolver.build(
+      gateway({
+        getVariableByIdAsync: (id) =>
+          Promise.resolve(variable({ id, collectionId: 'C:remote', remote: true })),
+        getVariableCollectionByIdAsync: (id) => {
+          calls++;
+          return Promise.resolve(collection(id, 'Semantic'));
+        },
+      }),
+    );
+
+    await resolver.hydrate(['V:1', 'V:2', 'V:3']);
+
+    expect(calls).toBe(1);
+  });
+
+  it('недоступная коллекция оставляет слой null, но переменную не теряет', async () => {
+    const resolver = await VariableResolver.build(
+      gateway({
+        getVariableByIdAsync: (id) =>
+          Promise.resolve(variable({ id, name: 'brand', collectionId: 'C:x', remote: true })),
+        getVariableCollectionByIdAsync: () => Promise.reject(new Error('нет доступа')),
+      }),
+      { primitives: ['Primitives'] },
+    );
+
+    await resolver.hydrate(['V:1']);
+
+    expect(resolver.resolve('V:1')).toMatchObject({ state: 'library', layer: null });
+    expect(resolver.canJudge('V:1')).toBe(true);
+  });
+
+  it('отдаёт имена всех известных коллекций', async () => {
+    const resolver = await VariableResolver.build(
+      gateway({
+        getLocalVariableCollectionsAsync: () => Promise.resolve([collection('C:1', 'Local')]),
+        getVariableByIdAsync: (id) =>
+          Promise.resolve(variable({ id, collectionId: 'C:2', remote: true })),
+        getVariableCollectionByIdAsync: (id) => Promise.resolve(collection(id, 'Remote')),
+      }),
+    );
+
+    await resolver.hydrate(['V:1']);
+
+    expect([...resolver.collectionNames].sort()).toEqual(['Local', 'Remote']);
   });
 });

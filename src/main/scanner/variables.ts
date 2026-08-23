@@ -33,6 +33,7 @@ export interface VariablesGateway {
   getLocalVariableCollectionsAsync(): Promise<VariableCollection[]>;
   getLocalVariablesAsync(): Promise<Variable[]>;
   getVariableByIdAsync(id: string): Promise<Variable | null>;
+  getVariableCollectionByIdAsync(id: string): Promise<VariableCollection | null>;
 }
 
 interface CollectionInfo {
@@ -96,6 +97,10 @@ export class VariableResolver {
           this.#byId.set(id, { state: 'unavailable', id });
           continue;
         }
+        // Коллекция библиотечной переменной не попадает в локальный индекс,
+        // а без неё не определить слой — и layer-violation молча не работает
+        // на любом файле-потребителе. Найдено боевым замером.
+        await this.#ensureCollection(variable.variableCollectionId);
         this.#index(variable);
       } catch {
         this.#byId.set(id, { state: 'unavailable', id });
@@ -132,10 +137,35 @@ export class VariableResolver {
   }
 
   /**
-   * Библиотечная переменная приходит без своей коллекции в локальном индексе:
-   * `collectionName` остаётся пустым, а `layer` — null. Правило
-   * `layer-violation` для такой переменной обязано молчать, а не считать
-   * отсутствие слоя нарушением.
+   * Догружает коллекцию, если её нет в локальном индексе.
+   *
+   * Недоступная коллекция — не ошибка: слой останется `null`, и правила,
+   * зависящие от слоя, промолчат.
+   */
+  async #ensureCollection(collectionId: string): Promise<void> {
+    if (this.#collections.has(collectionId)) return;
+    try {
+      const collection = await this.#gateway.getVariableCollectionByIdAsync(collectionId);
+      if (collection === null) return;
+      this.#collections.set(collection.id, {
+        id: collection.id,
+        name: collection.name,
+        layer: this.#layerOfName(collection.name),
+      });
+    } catch {
+      // Коллекция недоступна — слой не определить, и это нормально.
+    }
+  }
+
+  /** Имена всех известных коллекций — локальных и догруженных библиотечных. */
+  get collectionNames(): readonly string[] {
+    return [...this.#collections.values()].map((collection) => collection.name);
+  }
+
+  /**
+   * Если коллекцию не удалось догрузить, `collectionName` остаётся пустым,
+   * а `layer` — null. Правило `layer-violation` для такой переменной обязано
+   * молчать, а не считать отсутствие слоя нарушением.
    */
   #index(variable: Variable): void {
     const collection = this.#collections.get(variable.variableCollectionId);

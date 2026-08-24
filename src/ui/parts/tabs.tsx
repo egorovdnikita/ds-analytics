@@ -22,6 +22,7 @@ import {
   Note,
   pct,
   Pill,
+  Places,
   Ring,
   Row,
   Segmented,
@@ -177,7 +178,13 @@ const MASTER_FILTERS: readonly { value: MasterFilter; label: string }[] = [
 
 const PAGE_SIZE = 25;
 
-export function ComponentsTab({ adoption }: { adoption: Adoption }): JSX.Element {
+export function ComponentsTab({
+  adoption,
+  onReveal,
+}: {
+  adoption: Adoption;
+  onReveal: (nodeId: string, pageId: string) => void;
+}): JSX.Element {
   const [selected, setSelected] = useState<MasterUsage | null>(null);
   const [filter, setFilter] = useState<MasterFilter>('all');
   const [query, setQuery] = useState('');
@@ -276,6 +283,14 @@ export function ComponentsTab({ adoption }: { adoption: Adoption }): JSX.Element
                   : 'Источник недоступен: библиотека отключена от файла либо компонент удалён.'}
             </Note>
           </div>
+
+          <h4 className="mb-1 mt-4 text-[12px] text-ink-soft">
+            Где посмотреть{' '}
+            {selected.instances > selected.places.length && (
+              <span className="text-ink-faint">· первые {selected.places.length}</span>
+            )}
+          </h4>
+          <Places places={selected.places} onReveal={onReveal} />
         </Modal>
       )}
     </>
@@ -324,7 +339,13 @@ export function TokensTab({ adoption }: { adoption: Adoption }): JSX.Element {
 
 /* ---------- 4. Проверки ---------- */
 
-export function ChecksTab({ summary }: { summary: ProbeSummary }): JSX.Element {
+export function ChecksTab({
+  summary,
+  onReveal,
+}: {
+  summary: ProbeSummary;
+  onReveal: (nodeId: string, pageId: string) => void;
+}): JSX.Element {
   const [selected, setSelected] = useState<RuleSummary | null>(null);
 
   return (
@@ -365,9 +386,16 @@ export function ChecksTab({ summary }: { summary: ProbeSummary }): JSX.Element {
                 ? `Почему: ${selected.outcome.reason}.`
                 : selected.outcome.status === 'empty'
                   ? selected.outcome.note
-                  : 'Список мест — во вкладке CSV.'}
+                  : 'Клик по месту выделит слой в файле.'}
             </Note>
           </div>
+
+          {selected.outcome.status === 'measured' && (
+            <>
+              <h4 className="mb-1 mt-4 text-[12px] text-ink-soft">Где посмотреть</h4>
+              <Places places={selected.places} onReveal={onReveal} />
+            </>
+          )}
         </Modal>
       )}
     </div>

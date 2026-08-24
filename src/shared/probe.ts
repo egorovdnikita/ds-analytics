@@ -58,6 +58,8 @@ export type RuleOutcome =
 export interface RuleSummary {
   readonly rule: ProbeRuleId;
   readonly outcome: RuleOutcome;
+  /** Места из выборки — к каждому можно перейти. */
+  readonly places: readonly Place[];
 }
 
 export type FileProfile = 'library-source' | 'consumer' | 'no-design-system' | 'unclear';
@@ -98,12 +100,23 @@ export const PROFILE_LABEL: Readonly<Record<FileProfile, string>> = {
 /** Откуда пришёл мастер компонента. */
 export type MasterOrigin = 'library' | 'local' | 'unknown';
 
+/** Место в файле, к которому можно перейти в один клик. */
+export interface Place {
+  readonly nodeId: string;
+  readonly pageId: string;
+  readonly name: string;
+  /** Что именно нашли — для правил. Для копий пусто. */
+  readonly detail?: string;
+}
+
 export interface MasterUsage {
   readonly key: string;
   readonly name: string;
   readonly origin: MasterOrigin;
   /** Сколько инстансов верхнего уровня ссылается на этот мастер. */
   readonly instances: number;
+  /** Первые несколько копий — чтобы дойти до них кликом. Список ограничен. */
+  readonly places: readonly Place[];
 }
 
 export interface LibrarySource {

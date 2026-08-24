@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import type { MainMessage, UiMessage } from '../shared/messages';
 import { PROFILE_LABEL, type Adoption, type ProbeSummary } from '../shared/probe';
 import type { ScanScope } from '../shared/types';
-import { Button, Pill, Segmented } from './parts/primitives';
+import { Button, Pill, Progress, Segmented } from './parts/primitives';
 import { ChecksTab, ComponentsTab, SummaryTab, TokensTab } from './parts/tabs';
 
 function send(message: UiMessage): void {
@@ -25,6 +25,13 @@ const SCOPES: readonly { value: ScanScope; label: string }[] = [
   { value: 'file', label: 'весь файл' },
 ];
 
+interface Progressing {
+  nodes: number;
+  pagesDone: number;
+  pagesTotal: number;
+  page: string;
+}
+
 interface Result {
   summary: ProbeSummary;
   adoption: Adoption;
@@ -35,7 +42,12 @@ export function App(): JSX.Element {
   const [fileName, setFileName] = useState<string | null>(null);
   const [scope, setScope] = useState<ScanScope>('page');
   const [running, setRunning] = useState(false);
-  const [progress, setProgress] = useState('');
+  const [progress, setProgress] = useState<{
+    nodes: number;
+    pagesDone: number;
+    pagesTotal: number;
+    page: string;
+  } | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [tab, setTab] = useState<Tab>('Сводка');
   const [error, setError] = useState<string | null>(null);
@@ -50,17 +62,22 @@ export function App(): JSX.Element {
           setFileName(message.fileName);
           return;
         case 'main/scan-progress':
-          setProgress(`${message.nodesVisited.toLocaleString('ru')} слоёв`);
+          setProgress({
+            nodes: message.nodesVisited,
+            pagesDone: message.pagesDone,
+            pagesTotal: message.pagesTotal,
+            page: message.currentPageName,
+          });
           return;
         case 'main/scan-finished':
           setRunning(false);
-          setProgress('');
+          setProgress(null);
           setTab('Сводка');
           setResult({ summary: message.summary, adoption: message.adoption, csv: message.csv });
           return;
         case 'main/error':
           setRunning(false);
-          setProgress('');
+          setProgress(null);
           setError(message.message);
           return;
       }
@@ -72,9 +89,14 @@ export function App(): JSX.Element {
     };
   }, []);
 
+  const reveal = (nodeId: string, pageId: string): void => {
+    send({ type: 'ui/reveal', nodeId, pageId });
+  };
+
   const start = (): void => {
     setError(null);
     setResult(null);
+    setProgress(null);
     setRunning(true);
     send({ type: 'ui/scan-requested', scope, seed: 1 });
   };
@@ -144,7 +166,7 @@ export function App(): JSX.Element {
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        <Content tab={tab} result={result} onGoTo={setTab} />
+        <Content tab={tab} result={result} onGoTo={setTab} onReveal={reveal} />
       </main>
     </div>
   );
@@ -165,7 +187,7 @@ function Start({
   scope: ScanScope;
   setScope: (scope: ScanScope) => void;
   running: boolean;
-  progress: string;
+  progress: Progressing | null;
   error: string | null;
   onStart: () => void;
   onCancel: () => void;
@@ -210,13 +232,19 @@ function Start({
           )}
         </div>
 
-        <div className="mt-4 h-5">
-          {running && progress !== '' && (
-            <Pill>
-              <span className="tabular-nums">{progress}</span>
-            </Pill>
+        <div className="mt-5 min-h-[46px]">
+          {running && progress !== null && (
+            <Progress
+              done={progress.pagesTotal > 1 ? progress.pagesDone : progress.nodes}
+              total={progress.pagesTotal > 1 ? progress.pagesTotal : Math.max(progress.nodes, 1)}
+              caption={
+                progress.pagesTotal > 1
+                  ? `${progress.page} · страница ${progress.pagesDone + 1} из ${progress.pagesTotal} · ${progress.nodes.toLocaleString('ru')} слоёв`
+                  : `${progress.nodes.toLocaleString('ru')} слоёв`
+              }
+            />
           )}
-          {error !== null && <p className="text-[12px] text-danger">{error}</p>}
+          {error !== null && <p className="text-[12px] leading-snug text-danger">{error}</p>}
         </div>
 
         {fileName !== null && !running && (
@@ -246,30 +274,66 @@ function Content({
   tab,
   result,
   onGoTo,
+  onReveal,
 }: {
   tab: Tab;
   result: Result;
   onGoTo: (tab: Tab) => void;
+  onReveal: (nodeId: string, pageId: string) => void;
 }): JSX.Element {
   switch (tab) {
     case 'Сводка':
       return <SummaryTab summary={result.summary} adoption={result.adoption} onGoTo={onGoTo} />;
     case 'Компоненты':
-      return <ComponentsTab adoption={result.adoption} />;
+      return <ComponentsTab adoption={result.adoption} onReveal={onReveal} />;
     case 'Токены':
       return <TokensTab adoption={result.adoption} />;
     case 'Проверки':
-      return <ChecksTab summary={result.summary} />;
+      return <ChecksTab summary={result.summary} onReveal={onReveal} />;
     case 'CSV':
-      return (
-        <div className="flex h-full flex-col gap-2">
-          <textarea
-            className="min-h-0 flex-1 resize-none rounded-card border-0 bg-white p-3 font-mono text-[11px] leading-snug"
-            readOnly
-            value={result.csv}
-            onFocus={(e) => e.currentTarget.select()}
-          />
-        </div>
-      );
+      return <CsvView csv={result.csv} />;
   }
+}
+
+/**
+ * Выгрузка. Кнопка копирования вместо «выделите всё сами».
+ *
+ * Через скрытое поле и execCommand: в iframe плагина navigator.clipboard
+ * доступен не всегда, и молча ничего не скопировать — худший исход.
+ */
+function CsvView({ csv }: { csv: string }): JSX.Element {
+  const [copied, setCopied] = useState(false);
+
+  const copy = (): void => {
+    const field = document.createElement('textarea');
+    field.value = csv;
+    field.style.position = 'fixed';
+    field.style.opacity = '0';
+    document.body.appendChild(field);
+    field.select();
+    try {
+      document.execCommand('copy');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } finally {
+      document.body.removeChild(field);
+    }
+  };
+
+  return (
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <Button onClick={copy}>{copied ? 'Скопировано' : 'Скопировать'}</Button>
+        <span className="text-[12px] text-ink-faint">
+          {csv.split('\n').length.toLocaleString('ru')} строк
+        </span>
+      </div>
+      <textarea
+        className="min-h-0 flex-1 resize-none rounded-card border-0 bg-white p-3 font-mono text-[11px] leading-snug outline-none"
+        readOnly
+        value={csv}
+        onFocus={(e) => e.currentTarget.select()}
+      />
+    </div>
+  );
 }

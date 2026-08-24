@@ -11,6 +11,11 @@ function emptyResolver() {
   });
 }
 
+/** Место, через которое встретился мастер. Для счётчиков важен только факт. */
+function place(id: string) {
+  return { nodeId: `${id}:1`, pageId: 'p:1', name: 'копия' };
+}
+
 const okLibrary: LibraryGateway = {
   getAvailableLibraryVariableCollectionsAsync: () => Promise.resolve([]),
 };
@@ -39,9 +44,9 @@ async function build(masterRefs: (MasterRef | null)[], library = okLibrary) {
 describe('adoption: происхождение компонентов', () => {
   it('делит инстансы на библиотечные, локальные и недоступные', async () => {
     const adoption = await build([
-      { key: 'a', name: 'Button', remote: true },
-      { key: 'a', name: 'Button', remote: true },
-      { key: 'b', name: 'Card', remote: false },
+      { key: 'a', name: 'Button', remote: true, place: place('a') },
+      { key: 'a', name: 'Button', remote: true, place: place('a') },
+      { key: 'b', name: 'Card', remote: false, place: place('b') },
       null,
     ]);
 
@@ -54,9 +59,9 @@ describe('adoption: происхождение компонентов', () => {
 
   it('сортирует мастеров по числу инстансов', async () => {
     const adoption = await build([
-      { key: 'a', name: 'Rare', remote: true },
-      { key: 'b', name: 'Common', remote: true },
-      { key: 'b', name: 'Common', remote: true },
+      { key: 'a', name: 'Rare', remote: true, place: place('a') },
+      { key: 'b', name: 'Common', remote: true, place: place('b') },
+      { key: 'b', name: 'Common', remote: true, place: place('b') },
     ]);
 
     expect(adoption.masters.map((m) => m.name)).toEqual(['Common', 'Rare']);
@@ -72,7 +77,10 @@ describe('adoption: происхождение компонентов', () => {
 describe('adoption: недоступная библиотека', () => {
   it('не роняет замер и честно помечает источники неизвестными', async () => {
     // Боевой прогон падал целиком из-за одного необязательного источника.
-    const adoption = await build([{ key: 'a', name: 'Button', remote: true }], forbiddenLibrary);
+    const adoption = await build(
+      [{ key: 'a', name: 'Button', remote: true, place: place('a') }],
+      forbiddenLibrary,
+    );
 
     expect(adoption.librarySourcesAvailable).toBe(false);
     expect(adoption.fromLibrary).toBe(1);
@@ -80,7 +88,39 @@ describe('adoption: недоступная библиотека', () => {
   });
 
   it('при доступной библиотеке флаг поднят', async () => {
-    const adoption = await build([{ key: 'a', name: 'Button', remote: true }]);
+    const adoption = await build([{ key: 'a', name: 'Button', remote: true, place: place('a') }]);
     expect(adoption.librarySourcesAvailable).toBe(true);
+  });
+});
+
+describe('adoption: места для перехода', () => {
+  it('запоминает копии, но не больше десяти на компонент', async () => {
+    // Хранить все — значит тащить в UI десятки тысяч id ради списка,
+    // который никто не пролистает.
+    const refs = Array.from({ length: 40 }, (_, i) => ({
+      key: 'a',
+      name: 'Button',
+      remote: true,
+      place: { nodeId: `n:${i}`, pageId: 'p:1', name: `копия ${i}` },
+    }));
+
+    const adoption = await build(refs);
+
+    expect(adoption.masters[0]?.instances).toBe(40);
+    expect(adoption.masters[0]?.places).toHaveLength(10);
+    expect(adoption.masters[0]?.places[0]?.nodeId).toBe('n:0');
+  });
+
+  it('у каждой копии есть страница — без неё переход невозможен', async () => {
+    const adoption = await build([
+      {
+        key: 'a',
+        name: 'Button',
+        remote: true,
+        place: { nodeId: 'n:1', pageId: 'p:7', name: 'к' },
+      },
+    ]);
+
+    expect(adoption.masters[0]?.places[0]).toMatchObject({ nodeId: 'n:1', pageId: 'p:7' });
   });
 });

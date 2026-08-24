@@ -13,6 +13,7 @@ function build(diag: Partial<Diagnostics>, hits: Partial<Record<ProbeRuleId, num
     diagnostics: { ...emptyDiagnostics(), ...diag },
     hits: new Map(entries),
     sampled: new Map(entries.map(([rule, n]) => [rule, Math.min(n, 30)])),
+    places: new Map(),
   });
 }
 

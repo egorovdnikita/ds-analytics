@@ -71,7 +71,7 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
   // Фаза 2 — обход. Ноды копим целиком: пробник меряет, а не экономит память.
   const nodes: { node: SceneNode; pageId: string }[] = [];
   const aliasIds = new Set<string>();
-  const topLevelInstances: InstanceNode[] = [];
+  const topLevelInstances: { node: InstanceNode; pageId: string }[] = [];
   const diagnostics = emptyDiagnostics();
 
   const result = await traverse(
@@ -97,7 +97,7 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
         const nested = parent !== null && 'type' in parent && insideInstance(parent as SceneNode);
         if (!nested) {
           diagnostics.instancesTopLevel++;
-          topLevelInstances.push(node);
+          topLevelInstances.push({ node, pageId });
         }
       } else if (insideInstance(node)) {
         diagnostics.nodesInsideInstance++;
@@ -120,15 +120,20 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
   const masterRefs: (MasterRef | null)[] = [];
   // Без этого detached-instance не мог сработать ни разу на файле-потребителе:
   // локальных COMPONENT там нет, мастера лежат в библиотеке.
-  for (const instance of topLevelInstances) {
+  for (const { node, pageId } of topLevelInstances) {
     try {
-      const master = await instance.getMainComponentAsync();
+      const master = await node.getMainComponentAsync();
       if (master === null) {
         masterRefs.push(null);
         continue;
       }
       masterNames.add(master.name);
-      masterRefs.push({ key: master.key, name: master.name, remote: master.remote });
+      masterRefs.push({
+        key: master.key,
+        name: master.name,
+        remote: master.remote,
+        place: { nodeId: node.id, pageId, name: node.name },
+      });
     } catch {
       // Недоступный мастер — не повод ронять замер.
       masterRefs.push(null);
@@ -212,6 +217,18 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
       diagnostics,
       hits: totals,
       sampled: new Map([...sampled].map(([rule, hits]) => [rule, hits.length])),
+      // Места из выборки — к ним пользователь и будет переходить.
+      places: new Map(
+        [...sampled].map(([rule, hits]) => [
+          rule,
+          hits.map((hit) => ({
+            nodeId: hit.nodeId,
+            pageId: hit.pageId,
+            name: hit.nodeName,
+            detail: hit.detail,
+          })),
+        ]),
+      ),
     }),
   });
 }
@@ -232,6 +249,35 @@ function handle(message: UiMessage): void {
     case 'ui/scan-cancelled':
       cancelled = true;
       return;
+    case 'ui/reveal':
+      void reveal(message.nodeId, message.pageId);
+      return;
+  }
+}
+
+/**
+ * Переход к слою: страница, выделение, зум.
+ *
+ * Всё через async-API: при documentAccess «dynamic-page» синхронный
+ * getNodeById недоступен, а нужная страница может быть не загружена.
+ */
+async function reveal(nodeId: string, pageId: string): Promise<void> {
+  try {
+    const page = await figma.getNodeByIdAsync(pageId);
+    if (page !== null && page.type === 'PAGE' && page.id !== figma.currentPage.id) {
+      await figma.setCurrentPageAsync(page);
+    }
+
+    const node = await figma.getNodeByIdAsync(nodeId);
+    if (node === null || node.removed || !('visible' in node)) {
+      figma.notify('Слой не найден — возможно, его удалили');
+      return;
+    }
+
+    figma.currentPage.selection = [node];
+    figma.viewport.scrollAndZoomIntoView([node]);
+  } catch {
+    figma.notify('Не удалось перейти к слою');
   }
 }
 

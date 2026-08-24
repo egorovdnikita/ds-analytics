@@ -12,7 +12,8 @@ import type { ScanScope } from './types';
 export type UiMessage =
   | { readonly type: 'ui/ready' }
   | { readonly type: 'ui/scan-requested'; readonly scope: ScanScope; readonly seed: number }
-  | { readonly type: 'ui/scan-cancelled' };
+  | { readonly type: 'ui/scan-cancelled' }
+  | { readonly type: 'ui/reveal'; readonly nodeId: string; readonly pageId: string };
 
 /** main -> ui */
 export type MainMessage =

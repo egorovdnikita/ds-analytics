@@ -344,3 +344,68 @@ export function pct(part: number, total: number): string {
   if (value > 0 && value < 1) return '<1%';
   return `${Math.round(value)}%`;
 }
+
+/** Полоса выполнения. Два уровня: страницы и слои. */
+export function Progress({
+  done,
+  total,
+  caption,
+}: {
+  done: number;
+  total: number;
+  caption: string;
+}): JSX.Element {
+  const share = total === 0 ? 0 : Math.min(done / total, 1);
+  return (
+    <div className="w-full">
+      <div className="h-1.5 w-full overflow-hidden rounded-pill bg-canvas">
+        <div
+          className="h-full rounded-pill bg-accent transition-[width] duration-300"
+          style={{ width: `${share * 100}%` }}
+        />
+      </div>
+      <p className="mt-2 text-center text-[12px] tabular-nums text-ink-soft">{caption}</p>
+    </div>
+  );
+}
+
+/**
+ * Список мест с переходом к слою.
+ *
+ * Ради этого экрана всё и затевалось: увидеть проблему мало, надо до неё
+ * дойти. Клик выделяет слой в Figma и подводит к нему вьюпорт.
+ */
+export function Places({
+  places,
+  onReveal,
+}: {
+  places: readonly { nodeId: string; pageId: string; name: string; detail?: string }[];
+  onReveal: (nodeId: string, pageId: string) => void;
+}): JSX.Element {
+  if (places.length === 0) {
+    return <Note>Мест для перехода нет.</Note>;
+  }
+
+  return (
+    <ul className="flex flex-col">
+      {places.map((place) => (
+        <li key={place.nodeId}>
+          <button
+            className="flex w-full items-center gap-2 border-t border-canvas py-2 text-left first:border-0 hover:bg-canvas/60"
+            onClick={() => onReveal(place.nodeId, place.pageId)}
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px]">{place.name}</span>
+              {place.detail !== undefined && place.detail !== '' && (
+                <span className="mt-0.5 block truncate text-[11px] text-ink-faint">
+                  {place.detail}
+                </span>
+              )}
+            </span>
+            <span className="shrink-0 text-[12px] text-accent-ink">перейти →</span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}

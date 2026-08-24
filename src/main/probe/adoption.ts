@@ -16,6 +16,7 @@ import type {
   LibrarySource,
   MasterOrigin,
   MasterUsage,
+  Place,
 } from '../../shared/probe';
 import type { VariableResolver } from '../scanner/variables';
 
@@ -23,7 +24,17 @@ export interface MasterRef {
   readonly key: string;
   readonly name: string;
   readonly remote: boolean;
+  /** Копия, через которую этот мастер встретился — чтобы к ней перейти. */
+  readonly place: Place;
 }
+
+/**
+ * Сколько копий запоминать на мастер.
+ *
+ * Хранить все — значит тащить в UI десятки тысяч id ради списка, который
+ * никто не пролистает. Нескольких хватает, чтобы дойти до примера.
+ */
+const PLACES_PER_MASTER = 10;
 
 export interface LibraryGateway {
   getAvailableLibraryVariableCollectionsAsync(): Promise<LibraryVariableCollection[]>;
@@ -71,17 +82,21 @@ export async function buildAdoption(
 const sumInstances = (sum: number, master: MasterUsage): number => sum + master.instances;
 
 function countMasters(refs: readonly (MasterRef | null)[]): MasterUsage[] {
-  const byKey = new Map<string, { name: string; origin: MasterOrigin; instances: number }>();
+  const byKey = new Map<
+    string,
+    { name: string; origin: MasterOrigin; instances: number; places: Place[] }
+  >();
 
   for (const ref of refs) {
     if (ref === null) continue;
     const origin: MasterOrigin = ref.remote ? 'library' : 'local';
     const existing = byKey.get(ref.key);
     if (existing === undefined) {
-      byKey.set(ref.key, { name: ref.name, origin, instances: 1 });
-    } else {
-      existing.instances++;
+      byKey.set(ref.key, { name: ref.name, origin, instances: 1, places: [ref.place] });
+      continue;
     }
+    existing.instances++;
+    if (existing.places.length < PLACES_PER_MASTER) existing.places.push(ref.place);
   }
 
   return [...byKey]

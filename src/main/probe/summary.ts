@@ -15,6 +15,7 @@ import type {
   Diagnostics,
   FileProfile,
   ProbeRuleId,
+  Place,
   ProbeSummary,
   RuleOutcome,
   RuleSummary,
@@ -202,6 +203,7 @@ export function buildSummary(input: {
   diagnostics: Diagnostics;
   hits: ReadonlyMap<ProbeRuleId, number>;
   sampled: ReadonlyMap<ProbeRuleId, number>;
+  places: ReadonlyMap<ProbeRuleId, readonly Place[]>;
 }): ProbeSummary {
   const { diagnostics: d } = input;
   // Ключевой признак — легли ли коллекции на слои ФАКТИЧЕСКИ. Догадка по
@@ -213,6 +215,7 @@ export function buildSummary(input: {
   const rules: RuleSummary[] = [...input.hits].map(([rule, hits]) => ({
     rule,
     outcome: outcomeFor(rule, hits, input.sampled.get(rule) ?? 0, d, layersOk),
+    places: input.places.get(rule) ?? [],
   }));
 
   const toJudge = rules.reduce(

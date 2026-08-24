@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildAdoption, type LibraryGateway, type MasterRef } from '../../src/main/probe/adoption';
+import {
+  buildAdoption,
+  type LibraryGateway,
+  type MasterRef,
+} from '../../src/main/analysis/adoption';
 import { VariableResolver } from '../../src/main/scanner/variables';
 
 function emptyResolver() {
@@ -31,7 +35,6 @@ async function build(masterRefs: (MasterRef | null)[], library = okLibrary) {
   return buildAdoption(
     {
       masterRefs,
-      detachedCandidates: 0,
       resolver: await emptyResolver(),
       nodesOnLibraryVariable: 0,
       nodesOnLocalVariable: 0,

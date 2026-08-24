@@ -1,3 +1,5 @@
+import type { Place } from './adoption';
+
 /**
  * Контракты пробника между main и ui.
  *
@@ -97,64 +99,13 @@ export const PROFILE_LABEL: Readonly<Record<FileProfile, string>> = {
 
 /* ================= Adoption ================= */
 
-/** Откуда пришёл мастер компонента. */
-export type MasterOrigin = 'library' | 'local' | 'unknown';
-
-/** Место в файле, к которому можно перейти в один клик. */
-export interface Place {
-  readonly nodeId: string;
-  readonly pageId: string;
-  readonly name: string;
-  /** Что именно нашли — для правил. Для копий пусто. */
-  readonly detail?: string;
-}
-
-export interface MasterUsage {
-  readonly key: string;
-  readonly name: string;
-  readonly origin: MasterOrigin;
-  /** Сколько инстансов верхнего уровня ссылается на этот мастер. */
-  readonly instances: number;
-  /** Первые несколько копий — чтобы дойти до них кликом. Список ограничен. */
-  readonly places: readonly Place[];
-}
-
-export interface LibrarySource {
-  readonly libraryName: string;
-  readonly collections: number;
-  readonly variables: number;
-}
-
-export interface CollectionUsage {
-  readonly name: string;
-  /** Имя библиотеки или «Локальная». */
-  readonly source: string;
-  readonly variables: number;
-  readonly isLocal: boolean;
-}
-
-export interface Adoption {
-  /**
-   * Удалось ли назвать библиотеки-источники.
-   *
-   * false означает «не смогли спросить», а не «библиотек нет»: без
-   * разрешения teamlibrary в манифесте обращение к API бросает исключение.
-   */
-  readonly librarySourcesAvailable: boolean;
-  /** Инстансы верхнего уровня: вложенные делят мастера с родителем. */
-  readonly instancesCounted: number;
-  readonly mastersTotal: number;
-  readonly fromLibrary: number;
-  readonly local: number;
-  readonly unknown: number;
-  /** Кандидаты в оторванные инстансы — доля системы, потерянная при detach. */
-  readonly detachedCandidates: number;
-  readonly masters: readonly MasterUsage[];
-  readonly libraries: readonly LibrarySource[];
-  readonly collections: readonly CollectionUsage[];
-  /** Нод с биндингом на библиотечную переменную. */
-  readonly nodesOnLibraryVariable: number;
-  readonly nodesOnLocalVariable: number;
-  /** Нод, которые могли бы иметь переменную (есть заливка), но не имеют. */
-  readonly nodesWithoutVariable: number;
-}
+// Типы отчёта живут в shared/adoption.ts — он общий с продуктовой сборкой.
+// Дублировать их здесь значит развести две правды об одном контракте.
+export type {
+  Adoption,
+  CollectionUsage,
+  LibrarySource,
+  MasterOrigin,
+  MasterUsage,
+  Place,
+} from './adoption';

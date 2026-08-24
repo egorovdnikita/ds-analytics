@@ -24,7 +24,7 @@ import {
 } from './probe/checks';
 import { emptyDiagnostics } from './probe/diagnostics';
 import { buildCsv } from './probe/report';
-import { buildAdoption, type MasterRef } from './probe/adoption';
+import { buildAdoption, type MasterRef } from './analysis/adoption';
 import { buildSummary } from './probe/summary';
 import { sample } from './probe/sample';
 
@@ -195,7 +195,6 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
     adoption: await buildAdoption(
       {
         masterRefs,
-        detachedCandidates: byRule.get('components/detached-instance')?.length ?? 0,
         resolver,
         nodesOnLibraryVariable: onLibraryVariable,
         nodesOnLocalVariable: onLocalVariable,

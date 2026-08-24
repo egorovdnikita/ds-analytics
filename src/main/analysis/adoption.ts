@@ -17,7 +17,7 @@ import type {
   MasterOrigin,
   MasterUsage,
   Place,
-} from '../../shared/probe';
+} from '../../shared/adoption';
 import type { VariableResolver } from '../scanner/variables';
 
 export interface MasterRef {
@@ -43,7 +43,6 @@ export interface LibraryGateway {
 export interface AdoptionInput {
   /** По одной записи на инстанс верхнего уровня; null — мастер недоступен. */
   readonly masterRefs: readonly (MasterRef | null)[];
-  readonly detachedCandidates: number;
   readonly resolver: VariableResolver;
   readonly nodesOnLibraryVariable: number;
   readonly nodesOnLocalVariable: number;
@@ -69,7 +68,6 @@ export async function buildAdoption(
     fromLibrary: masters.filter((m) => m.origin === 'library').reduce(sumInstances, 0),
     local: masters.filter((m) => m.origin === 'local').reduce(sumInstances, 0),
     unknown,
-    detachedCandidates: input.detachedCandidates,
     masters,
     libraries,
     collections,

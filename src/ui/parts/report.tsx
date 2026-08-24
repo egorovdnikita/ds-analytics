@@ -3,14 +3,7 @@
  * Тексты бытовые: «токен», «копия», «библиотека», без терминов из кода.
  */
 import { useMemo, useState } from 'react';
-import {
-  RULE_LABEL,
-  type Adoption,
-  type MasterUsage,
-  type ProbeSummary,
-  type RuleOutcome,
-  type RuleSummary,
-} from '../../shared/probe';
+import type { Adoption, MasterUsage } from '../../shared/adoption';
 import {
   BarCell,
   Button,
@@ -32,14 +25,12 @@ import {
 
 /* ---------- 1. Сводка ---------- */
 
-export function SummaryTab({
-  summary,
+export function SummaryScreen({
   adoption,
   onGoTo,
 }: {
-  summary: ProbeSummary;
   adoption: Adoption;
-  onGoTo: (tab: 'Компоненты' | 'Токены' | 'Проверки') => void;
+  onGoTo: (tab: 'Компоненты' | 'Токены') => void;
 }): JSX.Element {
   const instances = adoption.instancesCounted;
   const tokenNodes =
@@ -67,9 +58,9 @@ export function SummaryTab({
           hint={`${instances.toLocaleString('ru')} копий`}
         />
         <Kpi
-          label="Оторвано"
-          value={detachedCount(summary).toLocaleString('ru')}
-          hint="похоже на копии вне библиотеки"
+          label="Без библиотеки"
+          value={adoption.unknown.toLocaleString('ru')}
+          hint="копий, чей источник недоступен"
         />
       </div>
 
@@ -133,7 +124,7 @@ export function SummaryTab({
                   library.libraryName,
                   <BarCell
                     value={library.variables}
-                    max={Math.max(...adoption.libraries.map((l) => l.variables))}
+                    max={Math.max(...adoption.libraries.map((item) => item.variables))}
                   />,
                 ]}
               />
@@ -147,29 +138,8 @@ export function SummaryTab({
           <Note>Не удалось прочитать — это не значит, что библиотек нет.</Note>
         </Card>
       )}
-
-      <Card
-        title="Проверки"
-        action={
-          <button className="text-[12px] text-accent-ink" onClick={() => onGoTo('Проверки')}>
-            все →
-          </button>
-        }
-      >
-        <p className="text-[13px] text-ink-soft">
-          {summary.toJudge === 0
-            ? 'Проверять на этом файле нечего.'
-            : `Нашли ${summary.toJudge.toLocaleString('ru')} мест, которые стоит посмотреть.`}
-        </p>
-      </Card>
     </div>
   );
-}
-
-/** «Оторвано» — результат правила, а не метрика adoption. */
-function detachedCount(summary: ProbeSummary): number {
-  const rule = summary.rules.find((item) => item.rule === 'components/detached-instance');
-  return rule !== undefined && rule.outcome.status === 'measured' ? rule.outcome.hits : 0;
 }
 
 /* ---------- 2. Компоненты ---------- */
@@ -184,7 +154,7 @@ const MASTER_FILTERS: readonly { value: MasterFilter; label: string }[] = [
 
 const PAGE_SIZE = 25;
 
-export function ComponentsTab({
+export function ComponentsScreen({
   adoption,
   onReveal,
 }: {
@@ -210,8 +180,7 @@ export function ComponentsTab({
   }
 
   // Масштаб столбцов — по видимым строкам, а не по всему списку. Иначе
-  // после фильтра все полоски схлопываются в невидимые огрызки, и
-  // сравнивать отфильтрованное между собой становится нечем.
+  // после фильтра все полоски схлопываются в невидимые огрызки.
   const max = visible[0]?.instances ?? 1;
 
   return (
@@ -305,7 +274,7 @@ export function ComponentsTab({
 
 /* ---------- 3. Токены ---------- */
 
-export function TokensTab({ adoption }: { adoption: Adoption }): JSX.Element {
+export function TokensScreen({ adoption }: { adoption: Adoption }): JSX.Element {
   if (adoption.collections.length === 0) {
     return <Empty title="Коллекций токенов нет" hint="В файле не нашлось ни одной переменной." />;
   }
@@ -343,71 +312,6 @@ export function TokensTab({ adoption }: { adoption: Adoption }): JSX.Element {
   );
 }
 
-/* ---------- 4. Проверки ---------- */
-
-export function ChecksTab({
-  summary,
-  onReveal,
-}: {
-  summary: ProbeSummary;
-  onReveal: (nodeId: string, pageId: string) => void;
-}): JSX.Element {
-  const [selected, setSelected] = useState<RuleSummary | null>(null);
-
-  return (
-    <div className="flex flex-col gap-3">
-      <Card>
-        <ul className="flex flex-col">
-          {summary.rules.map((rule) => (
-            <li key={rule.rule}>
-              <button
-                className="flex w-full items-center gap-3 border-t border-canvas py-3 text-left first:border-0"
-                onClick={() => setSelected(rule)}
-              >
-                <span className="min-w-0 flex-1 truncate text-[13px]">{RULE_LABEL[rule.rule]}</span>
-                <OutcomePill outcome={rule.outcome} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      </Card>
-
-      <Card title="Уровни токенов">
-        <Note>{summary.layerNote}</Note>
-      </Card>
-
-      {selected !== null && (
-        <Modal title={RULE_LABEL[selected.rule]} onClose={() => setSelected(null)}>
-          <Field label="Итог" value={<OutcomePill outcome={selected.outcome} />} />
-          {selected.outcome.status === 'measured' && (
-            <>
-              <Field label="Нашли" value={selected.outcome.hits.toLocaleString('ru')} />
-              <Field label="Посмотреть" value={selected.outcome.sampled} />
-            </>
-          )}
-          <Field label="Код правила" value={<code className="text-[12px]">{selected.rule}</code>} />
-          <div className="mt-3">
-            <Note>
-              {selected.outcome.status === 'not-applicable'
-                ? `Почему: ${selected.outcome.reason}.`
-                : selected.outcome.status === 'empty'
-                  ? selected.outcome.note
-                  : 'Клик по месту выделит слой в файле.'}
-            </Note>
-          </div>
-
-          {selected.outcome.status === 'measured' && (
-            <>
-              <h4 className="mb-1 mt-4 text-[12px] text-ink-soft">Где посмотреть</h4>
-              <Places places={selected.places} onReveal={onReveal} />
-            </>
-          )}
-        </Modal>
-      )}
-    </div>
-  );
-}
-
 /* ---------- мелочи ---------- */
 
 function toneFor(origin: MasterUsage['origin']): 'accent' | 'warn' | 'faint' {
@@ -420,12 +324,4 @@ function OriginPill({ origin }: { origin: MasterUsage['origin'] }): JSX.Element 
   if (origin === 'library') return <Pill tone="accent">из библиотеки</Pill>;
   if (origin === 'local') return <Pill tone="warn">свой</Pill>;
   return <Pill>библиотека отключена</Pill>;
-}
-
-function OutcomePill({ outcome }: { outcome: RuleOutcome }): JSX.Element {
-  if (outcome.status === 'measured') {
-    return <Pill tone="warn">{outcome.hits.toLocaleString('ru')}</Pill>;
-  }
-  if (outcome.status === 'empty') return <Pill tone="accent">всё чисто</Pill>;
-  return <Pill>нечего проверять</Pill>;
 }

@@ -9,7 +9,7 @@ import type { ScanReport } from '../shared/adoption';
 import type { MainMessage, UiMessage } from '../shared/messages';
 import type { ScanScope } from '../shared/types';
 import { Button, Pill, Progress, Segmented } from './parts/primitives';
-import { ComponentsScreen, SummaryScreen, TokensScreen } from './parts/report';
+import { ComponentsScreen, SummaryScreen, TokensScreen, type MasterFilter } from './parts/report';
 
 function send(message: UiMessage): void {
   parent.postMessage({ pluginMessage: message }, '*');
@@ -38,6 +38,7 @@ export function App(): JSX.Element {
   const [progress, setProgress] = useState<Progressing | null>(null);
   const [report, setReport] = useState<ScanReport | null>(null);
   const [tab, setTab] = useState<Tab>('Сводка');
+  const [componentFilter, setComponentFilter] = useState<MasterFilter>('all');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export function App(): JSX.Element {
       switch (message.type) {
         case 'main/booted':
           setFileName(message.fileName);
+          if (message.lastScope !== null) setScope(message.lastScope);
           return;
         case 'main/scan-progress':
           setProgress({
@@ -136,7 +138,10 @@ export function App(): JSX.Element {
                 className={`flex shrink-0 items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] ${
                   active ? 'bg-accent font-medium text-white' : 'bg-white text-ink-soft'
                 }`}
-                onClick={() => setTab(name)}
+                onClick={() => {
+                  if (name === 'Компоненты') setComponentFilter('all');
+                  setTab(name);
+                }}
               >
                 {name}
                 {count !== null && (
@@ -153,7 +158,16 @@ export function App(): JSX.Element {
       </header>
 
       <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-        <Content tab={tab} report={report} onGoTo={setTab} onReveal={reveal} />
+        <Content
+          tab={tab}
+          report={report}
+          componentFilter={componentFilter}
+          onGoTo={(next, filter) => {
+            if (filter !== undefined) setComponentFilter(filter);
+            setTab(next);
+          }}
+          onReveal={reveal}
+        />
       </main>
     </div>
   );
@@ -257,19 +271,30 @@ function countFor(tab: Tab, report: ScanReport): number | null {
 function Content({
   tab,
   report,
+  componentFilter,
   onGoTo,
   onReveal,
 }: {
   tab: Tab;
   report: ScanReport;
-  onGoTo: (tab: Tab) => void;
+  componentFilter: MasterFilter;
+  onGoTo: (tab: Tab, filter?: MasterFilter) => void;
   onReveal: (nodeId: string, pageId: string) => void;
 }): JSX.Element {
   switch (tab) {
     case 'Сводка':
       return <SummaryScreen adoption={report.adoption} onGoTo={onGoTo} />;
     case 'Компоненты':
-      return <ComponentsScreen adoption={report.adoption} onReveal={onReveal} />;
+      return (
+        // key сбрасывает состояние экрана при смене фильтра снаружи —
+        // иначе переход «из сводки в отфильтрованный список» ничего не менял.
+        <ComponentsScreen
+          key={componentFilter}
+          adoption={report.adoption}
+          initialFilter={componentFilter}
+          onReveal={onReveal}
+        />
+      );
     case 'Токены':
       return <TokensScreen adoption={report.adoption} />;
   }

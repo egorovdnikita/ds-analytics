@@ -15,6 +15,22 @@ import { traverse, type ScanTarget } from './scanner/traversal';
 import { VariableResolver } from './scanner/variables';
 
 const UI_SIZE = { width: 480, height: 640 } as const;
+const SCOPE_KEY = 'last-scope';
+
+/**
+ * Охват прошлого запуска.
+ *
+ * clientStorage привязан к пользователю, а не к документу: настройка
+ * личная и не должна попадать в файл команды.
+ */
+async function loadLastScope(): Promise<ScanScope | null> {
+  try {
+    const stored: unknown = await figma.clientStorage.getAsync(SCOPE_KEY);
+    return stored === 'selection' || stored === 'page' || stored === 'file' ? stored : null;
+  } catch {
+    return null;
+  }
+}
 
 let cancelled = false;
 
@@ -85,6 +101,9 @@ function hasVisibleFill(node: SceneNode): boolean {
 
 async function scan(scope: ScanScope): Promise<void> {
   cancelled = false;
+  void figma.clientStorage.setAsync(SCOPE_KEY, scope).catch(() => {
+    // Не сохранился охват — не повод мешать скану.
+  });
 
   // Фаза 1 — локальный индекс переменных.
   const resolver = await VariableResolver.build(figma.variables);
@@ -204,7 +223,9 @@ async function reveal(nodeId: string, pageId: string): Promise<void> {
 function handle(message: UiMessage): void {
   switch (message.type) {
     case 'ui/ready':
-      post({ type: 'main/booted', fileName: figma.root.name });
+      void loadLastScope().then((lastScope) => {
+        post({ type: 'main/booted', fileName: figma.root.name, lastScope });
+      });
       return;
     case 'ui/scan-requested':
       scan(message.scope).catch((error: unknown) => {

@@ -14,7 +14,12 @@ export type UiMessage =
 
 /** main -> ui */
 export type MainMessage =
-  | { readonly type: 'main/booted'; readonly fileName: string }
+  | {
+      readonly type: 'main/booted';
+      readonly fileName: string;
+      /** Охват прошлого запуска — чтобы не выбирать его каждый раз заново. */
+      readonly lastScope: ScanScope | null;
+    }
   | {
       readonly type: 'main/scan-progress';
       readonly nodesVisited: number;

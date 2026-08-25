@@ -4,7 +4,9 @@
  */
 import { useMemo, useState } from 'react';
 import type { Adoption, MasterUsage } from '../../shared/adoption';
+import { buildAdvice, verdict } from '../../shared/advice';
 import {
+  AdviceRow,
   BarCell,
   Button,
   Card,
@@ -25,23 +27,36 @@ import {
 
 /* ---------- 1. Сводка ---------- */
 
+export type MasterFilter = 'all' | 'library' | 'local' | 'unknown';
+
 export function SummaryScreen({
   adoption,
   onGoTo,
 }: {
   adoption: Adoption;
-  onGoTo: (tab: 'Компоненты' | 'Токены') => void;
+  onGoTo: (tab: 'Компоненты' | 'Токены', filter?: MasterFilter) => void;
 }): JSX.Element {
   const instances = adoption.instancesCounted;
   const tokenNodes =
     adoption.nodesOnLibraryVariable + adoption.nodesOnLocalVariable + adoption.nodesWithoutVariable;
   const onTokens = adoption.nodesOnLibraryVariable + adoption.nodesOnLocalVariable;
 
+  const state = verdict(adoption);
+  const advice = buildAdvice(adoption);
+
   return (
     <div className="flex flex-col gap-3">
-      {/* Два кольца — главный ответ файла одним взглядом. */}
+      {/* Вердикт фразой, а под ним кольца. Цифры без вывода заставляют
+          читателя гадать, хорошо это или плохо. */}
       <Card>
-        <div className="flex items-start justify-around">
+        <p
+          className={`text-center text-[15px] font-medium ${
+            state.tone === 'good' ? 'text-accent-ink' : 'text-ink'
+          }`}
+        >
+          {state.text}
+        </p>
+        <div className="mt-3 flex items-start justify-around">
           <Ring
             value={adoption.fromLibrary}
             total={instances}
@@ -51,6 +66,32 @@ export function SummaryScreen({
         </div>
       </Card>
 
+      {advice.length > 0 && (
+        <Card title="С чего начать">
+          {advice.map((item) => {
+            // Через локальную константу: внутри замыкания TypeScript не
+            // удерживает сужение по `item.target.kind`.
+            const target = item.target;
+            const onClick =
+              target.kind === 'components'
+                ? () => onGoTo('Компоненты', target.filter)
+                : target.kind === 'tokens'
+                  ? () => onGoTo('Токены')
+                  : undefined;
+
+            return (
+              <AdviceRow
+                key={item.id}
+                title={item.title}
+                value={item.value}
+                hint={item.hint}
+                {...(onClick === undefined ? {} : { onClick })}
+              />
+            );
+          })}
+        </Card>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <Kpi
           label="Компонентов"
@@ -58,9 +99,9 @@ export function SummaryScreen({
           hint={`${instances.toLocaleString('ru')} копий`}
         />
         <Kpi
-          label="Без библиотеки"
-          value={adoption.unknown.toLocaleString('ru')}
-          hint="копий, чей источник недоступен"
+          label="Коллекций токенов"
+          value={adoption.collections.length.toLocaleString('ru')}
+          hint={`${(adoption.nodesOnLibraryVariable + adoption.nodesOnLocalVariable).toLocaleString('ru')} привязок`}
         />
       </div>
 
@@ -74,9 +115,24 @@ export function SummaryScreen({
       >
         <StackedBar
           segments={[
-            { label: 'Из библиотеки', value: adoption.fromLibrary, className: 'bg-accent' },
-            { label: 'Свои в этом файле', value: adoption.local, className: 'bg-warn' },
-            { label: 'Библиотека отключена', value: adoption.unknown, className: 'bg-ink-faint' },
+            {
+              label: 'Из библиотеки',
+              value: adoption.fromLibrary,
+              className: 'bg-accent',
+              onClick: () => onGoTo('Компоненты', 'library'),
+            },
+            {
+              label: 'Свои в этом файле',
+              value: adoption.local,
+              className: 'bg-warn',
+              onClick: () => onGoTo('Компоненты', 'local'),
+            },
+            {
+              label: 'Библиотека отключена',
+              value: adoption.unknown,
+              className: 'bg-ink-faint',
+              onClick: () => onGoTo('Компоненты', 'unknown'),
+            },
           ]}
         />
         {adoption.unknown > 0 && (
@@ -144,7 +200,6 @@ export function SummaryScreen({
 
 /* ---------- 2. Компоненты ---------- */
 
-type MasterFilter = 'all' | 'library' | 'local' | 'unknown';
 const MASTER_FILTERS: readonly { value: MasterFilter; label: string }[] = [
   { value: 'all', label: 'все' },
   { value: 'library', label: 'из библиотеки' },
@@ -156,13 +211,15 @@ const PAGE_SIZE = 25;
 
 export function ComponentsScreen({
   adoption,
+  initialFilter,
   onReveal,
 }: {
   adoption: Adoption;
+  initialFilter: MasterFilter;
   onReveal: (nodeId: string, pageId: string) => void;
 }): JSX.Element {
   const [selected, setSelected] = useState<MasterUsage | null>(null);
-  const [filter, setFilter] = useState<MasterFilter>('all');
+  const [filter, setFilter] = useState<MasterFilter>(initialFilter);
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(PAGE_SIZE);
 

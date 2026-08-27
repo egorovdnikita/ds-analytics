@@ -472,3 +472,65 @@ export function AdviceRow({
     </button>
   );
 }
+
+/**
+ * Спарклайн: форма тренда, а не точные значения.
+ *
+ * Числа даёт дельта рядом; линия отвечает на другой вопрос — растёт ли
+ * покрытие вообще или дёргается туда-сюда.
+ */
+export function Sparkline({
+  values,
+  className = 'stroke-accent',
+}: {
+  values: readonly number[];
+  className?: string;
+}): JSX.Element | null {
+  if (values.length < 2) return null;
+
+  const width = 120;
+  const height = 28;
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const span = max - min || 1;
+
+  const points = values
+    .map((value, index) => {
+      const x = (index / (values.length - 1)) * width;
+      const y = height - ((value - min) / span) * height;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+
+  const last = values[values.length - 1] ?? 0;
+  const lastY = height - ((last - min) / span) * height;
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-7 w-[120px] overflow-visible">
+      <polyline
+        points={points}
+        fill="none"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+      />
+      <circle cx={width} cy={lastY} r="2.5" className="fill-accent" />
+    </svg>
+  );
+}
+
+/** Изменение в процентных пунктах со знаком. */
+export function Delta({ points, since }: { points: number; since: string }): JSX.Element {
+  const rising = points > 0;
+  const flat = points === 0;
+  const tone = flat ? 'text-ink-faint' : rising ? 'text-accent-ink' : 'text-warn';
+  const sign = flat ? '' : rising ? '+' : '−';
+
+  return (
+    <span className={`text-[12px] tabular-nums ${tone}`}>
+      {flat ? 'без изменений' : `${sign}${Math.abs(points)} п.п.`}
+      <span className="ml-1 text-ink-faint">с {since}</span>
+    </span>
+  );
+}

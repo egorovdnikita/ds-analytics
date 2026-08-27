@@ -5,9 +5,11 @@
 import { useMemo, useState } from 'react';
 import type { Adoption, MasterUsage } from '../../shared/adoption';
 import { buildAdvice, verdict } from '../../shared/advice';
+import { deltaPoints, shortDate, type Trend } from '../../shared/snapshot';
 import {
   AdviceRow,
   BarCell,
+  Delta,
   Button,
   Card,
   Empty,
@@ -21,6 +23,7 @@ import {
   Ring,
   Row,
   Segmented,
+  Sparkline,
   StackedBar,
   Table,
 } from './primitives';
@@ -31,9 +34,11 @@ export type MasterFilter = 'all' | 'library' | 'local' | 'unknown';
 
 export function SummaryScreen({
   adoption,
+  trend,
   onGoTo,
 }: {
   adoption: Adoption;
+  trend: Trend;
   onGoTo: (tab: 'Компоненты' | 'Токены', filter?: MasterFilter) => void;
 }): JSX.Element {
   const instances = adoption.instancesCounted;
@@ -65,6 +70,8 @@ export function SummaryScreen({
           <Ring value={onTokens} total={tokenNodes} caption="слоёв на токенах" />
         </div>
       </Card>
+
+      <TrendCard adoption={adoption} trend={trend} />
 
       {advice.length > 0 && (
         <Card title="С чего начать">
@@ -196,6 +203,69 @@ export function SummaryScreen({
       )}
     </div>
   );
+}
+
+/**
+ * Тренд по охвату.
+ *
+ * Паспорт: «разовый скан — инструмент, тренд — продукт». Одна точка ещё
+ * не тренд, и притворяться, что она о чём-то говорит, не надо — карточка
+ * тогда честно объясняет, что сравнивать не с чем.
+ */
+function TrendCard({ adoption, trend }: { adoption: Adoption; trend: Trend }): JSX.Element {
+  const instances = adoption.instancesCounted;
+  const delta = deltaPoints(
+    { part: adoption.fromLibrary, total: instances },
+    trend.previous === null
+      ? null
+      : { part: trend.previous.fromLibrary, total: trend.previous.instances },
+  );
+
+  if (trend.previous === null || delta === null) {
+    return (
+      <Card title="Тренд">
+        <Note>
+          Это первый замер по этому охвату. Прогоните ещё раз через несколько дней — появится
+          сравнение.
+        </Note>
+      </Card>
+    );
+  }
+
+  const series = trend.points.map((point) =>
+    point.instances === 0 ? 0 : (point.fromLibrary / point.instances) * 100,
+  );
+
+  return (
+    <Card title="Тренд">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px]">Компоненты из библиотеки</p>
+          <p className="mt-1">
+            <Delta points={delta} since={shortDate(trend.previous.at)} />
+          </p>
+        </div>
+        <Sparkline values={series} />
+      </div>
+      <div className="mt-3">
+        <Note>
+          {trend.points.length} замер{plural(trend.points.length)} по охвату «
+          {trend.points[0]?.scope ?? ''}». Один снимок в день: повторный прогон заменяет
+          сегодняшний.
+        </Note>
+      </div>
+    </Card>
+  );
+}
+
+/** «1 замер», «2 замера», «5 замеров». */
+function plural(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return 'ов';
+  const mod10 = n % 10;
+  if (mod10 === 1) return '';
+  if (mod10 >= 2 && mod10 <= 4) return 'а';
+  return 'ов';
 }
 
 /* ---------- 2. Компоненты ---------- */

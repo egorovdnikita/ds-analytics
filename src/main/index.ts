@@ -11,6 +11,8 @@ import type { MainMessage, UiMessage } from '../shared/messages';
 import type { Place } from '../shared/adoption';
 import type { ScanScope } from '../shared/types';
 import { buildAdoption, type MasterRef } from './analysis/adoption';
+import { appendSnapshot, buildSnapshot, buildTrend } from './analysis/snapshot';
+import { HISTORY_LIMIT, loadHistory, saveHistory } from './storage/snapshots';
 import { traverse, type ScanTarget } from './scanner/traversal';
 import { VariableResolver } from './scanner/variables';
 
@@ -182,14 +184,32 @@ async function scan(scope: ScanScope): Promise<void> {
     },
   );
 
+  const scopeLabel = SCOPE_LABEL[scope];
+
+  // Снимок пишем только за полный обход: отменённый замер занизил бы
+  // покрытие и оставил в истории ложную яму.
+  let trend = buildTrend(loadHistory(figma.root), scopeLabel);
+  if (!result.cancelled) {
+    const snapshot = buildSnapshot({
+      at: new Date(),
+      scope: scopeLabel,
+      nodes: result.nodesVisited,
+      adoption,
+    });
+    const history = appendSnapshot(loadHistory(figma.root), snapshot, HISTORY_LIMIT);
+    saveHistory(figma.root, history);
+    trend = buildTrend(history, scopeLabel);
+  }
+
   post({
     type: 'main/scan-finished',
     report: {
       fileName: figma.root.name,
-      scope: SCOPE_LABEL[scope],
+      scope: scopeLabel,
       nodesVisited: result.nodesVisited,
       cancelled: result.cancelled,
       adoption,
+      trend,
     },
   });
 }

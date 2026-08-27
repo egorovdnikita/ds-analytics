@@ -1,3 +1,5 @@
+import type { Trend } from './snapshot';
+
 /**
  * Контракты отчёта adoption между main и ui.
  *
@@ -71,4 +73,6 @@ export interface ScanReport {
   readonly nodesVisited: number;
   readonly cancelled: boolean;
   readonly adoption: Adoption;
+  /** История по этому охвату, от старых к новым, включая текущий замер. */
+  readonly trend: Trend;
 }

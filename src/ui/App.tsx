@@ -283,7 +283,7 @@ function Content({
 }): JSX.Element {
   switch (tab) {
     case 'Сводка':
-      return <SummaryScreen adoption={report.adoption} onGoTo={onGoTo} />;
+      return <SummaryScreen adoption={report.adoption} trend={report.trend} onGoTo={onGoTo} />;
     case 'Компоненты':
       return (
         // key сбрасывает состояние экрана при смене фильтра снаружи —

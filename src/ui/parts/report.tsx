@@ -4,8 +4,12 @@
  */
 import { useMemo, useState } from 'react';
 import type { Adoption, MasterUsage } from '../../shared/adoption';
+import { buildAdvice, verdict } from '../../shared/advice';
+import { deltaPoints, shortDate, type Trend } from '../../shared/snapshot';
 import {
+  AdviceRow,
   BarCell,
+  Delta,
   Button,
   Card,
   Empty,
@@ -19,29 +23,45 @@ import {
   Ring,
   Row,
   Segmented,
+  Sparkline,
   StackedBar,
   Table,
 } from './primitives';
 
 /* ---------- 1. Сводка ---------- */
 
+export type MasterFilter = 'all' | 'library' | 'local' | 'unknown';
+
 export function SummaryScreen({
   adoption,
+  trend,
   onGoTo,
 }: {
   adoption: Adoption;
-  onGoTo: (tab: 'Компоненты' | 'Токены') => void;
+  trend: Trend;
+  onGoTo: (tab: 'Компоненты' | 'Токены', filter?: MasterFilter) => void;
 }): JSX.Element {
   const instances = adoption.instancesCounted;
   const tokenNodes =
     adoption.nodesOnLibraryVariable + adoption.nodesOnLocalVariable + adoption.nodesWithoutVariable;
   const onTokens = adoption.nodesOnLibraryVariable + adoption.nodesOnLocalVariable;
 
+  const state = verdict(adoption);
+  const advice = buildAdvice(adoption);
+
   return (
     <div className="flex flex-col gap-3">
-      {/* Два кольца — главный ответ файла одним взглядом. */}
+      {/* Вердикт фразой, а под ним кольца. Цифры без вывода заставляют
+          читателя гадать, хорошо это или плохо. */}
       <Card>
-        <div className="flex items-start justify-around">
+        <p
+          className={`text-center text-[15px] font-medium ${
+            state.tone === 'good' ? 'text-accent-ink' : 'text-ink'
+          }`}
+        >
+          {state.text}
+        </p>
+        <div className="mt-3 flex items-start justify-around">
           <Ring
             value={adoption.fromLibrary}
             total={instances}
@@ -51,6 +71,34 @@ export function SummaryScreen({
         </div>
       </Card>
 
+      <TrendCard adoption={adoption} trend={trend} />
+
+      {advice.length > 0 && (
+        <Card title="С чего начать">
+          {advice.map((item) => {
+            // Через локальную константу: внутри замыкания TypeScript не
+            // удерживает сужение по `item.target.kind`.
+            const target = item.target;
+            const onClick =
+              target.kind === 'components'
+                ? () => onGoTo('Компоненты', target.filter)
+                : target.kind === 'tokens'
+                  ? () => onGoTo('Токены')
+                  : undefined;
+
+            return (
+              <AdviceRow
+                key={item.id}
+                title={item.title}
+                value={item.value}
+                hint={item.hint}
+                {...(onClick === undefined ? {} : { onClick })}
+              />
+            );
+          })}
+        </Card>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <Kpi
           label="Компонентов"
@@ -58,9 +106,9 @@ export function SummaryScreen({
           hint={`${instances.toLocaleString('ru')} копий`}
         />
         <Kpi
-          label="Без библиотеки"
-          value={adoption.unknown.toLocaleString('ru')}
-          hint="копий, чей источник недоступен"
+          label="Коллекций токенов"
+          value={adoption.collections.length.toLocaleString('ru')}
+          hint={`${(adoption.nodesOnLibraryVariable + adoption.nodesOnLocalVariable).toLocaleString('ru')} привязок`}
         />
       </div>
 
@@ -74,9 +122,24 @@ export function SummaryScreen({
       >
         <StackedBar
           segments={[
-            { label: 'Из библиотеки', value: adoption.fromLibrary, className: 'bg-accent' },
-            { label: 'Свои в этом файле', value: adoption.local, className: 'bg-warn' },
-            { label: 'Библиотека отключена', value: adoption.unknown, className: 'bg-ink-faint' },
+            {
+              label: 'Из библиотеки',
+              value: adoption.fromLibrary,
+              className: 'bg-accent',
+              onClick: () => onGoTo('Компоненты', 'library'),
+            },
+            {
+              label: 'Свои в этом файле',
+              value: adoption.local,
+              className: 'bg-warn',
+              onClick: () => onGoTo('Компоненты', 'local'),
+            },
+            {
+              label: 'Библиотека отключена',
+              value: adoption.unknown,
+              className: 'bg-ink-faint',
+              onClick: () => onGoTo('Компоненты', 'unknown'),
+            },
           ]}
         />
         {adoption.unknown > 0 && (
@@ -142,9 +205,71 @@ export function SummaryScreen({
   );
 }
 
+/**
+ * Тренд по охвату.
+ *
+ * Паспорт: «разовый скан — инструмент, тренд — продукт». Одна точка ещё
+ * не тренд, и притворяться, что она о чём-то говорит, не надо — карточка
+ * тогда честно объясняет, что сравнивать не с чем.
+ */
+function TrendCard({ adoption, trend }: { adoption: Adoption; trend: Trend }): JSX.Element {
+  const instances = adoption.instancesCounted;
+  const delta = deltaPoints(
+    { part: adoption.fromLibrary, total: instances },
+    trend.previous === null
+      ? null
+      : { part: trend.previous.fromLibrary, total: trend.previous.instances },
+  );
+
+  if (trend.previous === null || delta === null) {
+    return (
+      <Card title="Тренд">
+        <Note>
+          Это первый замер по этому охвату. Прогоните ещё раз через несколько дней — появится
+          сравнение.
+        </Note>
+      </Card>
+    );
+  }
+
+  const series = trend.points.map((point) =>
+    point.instances === 0 ? 0 : (point.fromLibrary / point.instances) * 100,
+  );
+
+  return (
+    <Card title="Тренд">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px]">Компоненты из библиотеки</p>
+          <p className="mt-1">
+            <Delta points={delta} since={shortDate(trend.previous.at)} />
+          </p>
+        </div>
+        <Sparkline values={series} />
+      </div>
+      <div className="mt-3">
+        <Note>
+          {trend.points.length} замер{plural(trend.points.length)} по охвату «
+          {trend.points[0]?.scope ?? ''}». Один снимок в день: повторный прогон заменяет
+          сегодняшний.
+        </Note>
+      </div>
+    </Card>
+  );
+}
+
+/** «1 замер», «2 замера», «5 замеров». */
+function plural(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return 'ов';
+  const mod10 = n % 10;
+  if (mod10 === 1) return '';
+  if (mod10 >= 2 && mod10 <= 4) return 'а';
+  return 'ов';
+}
+
 /* ---------- 2. Компоненты ---------- */
 
-type MasterFilter = 'all' | 'library' | 'local' | 'unknown';
 const MASTER_FILTERS: readonly { value: MasterFilter; label: string }[] = [
   { value: 'all', label: 'все' },
   { value: 'library', label: 'из библиотеки' },
@@ -156,13 +281,15 @@ const PAGE_SIZE = 25;
 
 export function ComponentsScreen({
   adoption,
+  initialFilter,
   onReveal,
 }: {
   adoption: Adoption;
+  initialFilter: MasterFilter;
   onReveal: (nodeId: string, pageId: string) => void;
 }): JSX.Element {
   const [selected, setSelected] = useState<MasterUsage | null>(null);
-  const [filter, setFilter] = useState<MasterFilter>('all');
+  const [filter, setFilter] = useState<MasterFilter>(initialFilter);
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(PAGE_SIZE);
 

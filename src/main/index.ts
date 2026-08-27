@@ -235,7 +235,8 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
 function handle(message: UiMessage): void {
   switch (message.type) {
     case 'ui/ready':
-      post({ type: 'main/booted', fileName: figma.root.name });
+      // Пробник охват не запоминает: он одноразовый и запускается осознанно.
+      post({ type: 'main/booted', fileName: figma.root.name, lastScope: null });
       return;
     case 'ui/scan-requested':
       runProbe(message.scope, message.seed).catch((error: unknown) => {

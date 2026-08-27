@@ -162,6 +162,8 @@ export interface Segment {
   readonly label: string;
   readonly value: number;
   readonly className: string;
+  /** Клик по сегменту ведёт в отфильтрованный список. */
+  readonly onClick?: () => void;
 }
 
 /** Полоса долей: части одного целого, подписи читаются без легенды-угадайки. */
@@ -182,17 +184,36 @@ export function StackedBar({ segments }: { segments: readonly Segment[] }): JSX.
           ),
         )}
       </div>
-      <ul className="mt-3 flex flex-col gap-2">
-        {segments.map((segment) => (
-          <li key={segment.label} className="flex items-center gap-2 text-[13px]">
-            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${segment.className}`} />
-            <span className="min-w-0 flex-1 truncate text-ink-soft">{segment.label}</span>
-            <span className="shrink-0 font-medium">{segment.value.toLocaleString('ru')}</span>
-            <span className="w-9 shrink-0 text-right text-[12px] text-ink-faint">
-              {pct(segment.value, total)}
-            </span>
-          </li>
-        ))}
+      <ul className="mt-3 flex flex-col">
+        {segments.map((segment) => {
+          const body = (
+            <>
+              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${segment.className}`} />
+              <span className="min-w-0 flex-1 truncate text-left text-ink-soft">
+                {segment.label}
+              </span>
+              <span className="shrink-0 font-medium">{segment.value.toLocaleString('ru')}</span>
+              <span className="w-9 shrink-0 text-right text-[12px] text-ink-faint">
+                {pct(segment.value, total)}
+              </span>
+            </>
+          );
+
+          return (
+            <li key={segment.label}>
+              {segment.onClick === undefined || segment.value === 0 ? (
+                <div className="flex items-center gap-2 py-1 text-[13px]">{body}</div>
+              ) : (
+                <button
+                  className="-mx-1.5 flex w-[calc(100%+12px)] items-center gap-2 rounded-md px-1.5 py-1 text-[13px] hover:bg-canvas/70"
+                  onClick={segment.onClick}
+                >
+                  {body}
+                </button>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -407,5 +428,109 @@ export function Places({
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Пункт «с чего начать»: что не так, сколько и куда идти.
+ *
+ * Дашборд без такого блока перекладывает интерпретацию на читателя:
+ * «75%» само по себе не говорит, хорошо это или плохо.
+ */
+export function AdviceRow({
+  title,
+  value,
+  hint,
+  onClick,
+}: {
+  title: string;
+  value: string;
+  hint: string;
+  onClick?: () => void;
+}): JSX.Element {
+  const body = (
+    <>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline gap-2">
+          <span className="truncate text-[13px] font-medium">{title}</span>
+          <span className="shrink-0 text-[12px] tabular-nums text-warn">{value}</span>
+        </span>
+        <span className="mt-0.5 block text-[12px] leading-snug text-ink-faint">{hint}</span>
+      </span>
+      {onClick !== undefined && (
+        <span className="shrink-0 self-center text-[12px] text-accent-ink">→</span>
+      )}
+    </>
+  );
+
+  const className = 'flex w-full gap-2 border-t border-canvas py-2.5 text-left first:border-0';
+  return onClick === undefined ? (
+    <div className={className}>{body}</div>
+  ) : (
+    <button className={`${className} hover:bg-canvas/60`} onClick={onClick}>
+      {body}
+    </button>
+  );
+}
+
+/**
+ * Спарклайн: форма тренда, а не точные значения.
+ *
+ * Числа даёт дельта рядом; линия отвечает на другой вопрос — растёт ли
+ * покрытие вообще или дёргается туда-сюда.
+ */
+export function Sparkline({
+  values,
+  className = 'stroke-accent',
+}: {
+  values: readonly number[];
+  className?: string;
+}): JSX.Element | null {
+  if (values.length < 2) return null;
+
+  const width = 120;
+  const height = 28;
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
+  const span = max - min || 1;
+
+  const points = values
+    .map((value, index) => {
+      const x = (index / (values.length - 1)) * width;
+      const y = height - ((value - min) / span) * height;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+
+  const last = values[values.length - 1] ?? 0;
+  const lastY = height - ((last - min) / span) * height;
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-7 w-[120px] overflow-visible">
+      <polyline
+        points={points}
+        fill="none"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+      />
+      <circle cx={width} cy={lastY} r="2.5" className="fill-accent" />
+    </svg>
+  );
+}
+
+/** Изменение в процентных пунктах со знаком. */
+export function Delta({ points, since }: { points: number; since: string }): JSX.Element {
+  const rising = points > 0;
+  const flat = points === 0;
+  const tone = flat ? 'text-ink-faint' : rising ? 'text-accent-ink' : 'text-warn';
+  const sign = flat ? '' : rising ? '+' : '−';
+
+  return (
+    <span className={`text-[12px] tabular-nums ${tone}`}>
+      {flat ? 'без изменений' : `${sign}${Math.abs(points)} п.п.`}
+      <span className="ml-1 text-ink-faint">с {since}</span>
+    </span>
   );
 }

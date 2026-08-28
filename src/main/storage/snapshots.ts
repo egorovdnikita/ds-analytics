@@ -5,6 +5,7 @@
  * вместе с файлом. Разбор недоверенный: данные мог записать плагин другой
  * версии, поэтому мусор отбрасывается, а не роняет плагин.
  */
+import { utf8ByteLength } from '../../shared/bytes';
 import type { Snapshot } from '../../shared/snapshot';
 
 export const SNAPSHOTS_KEY = 'adoption-snapshots';
@@ -49,19 +50,6 @@ export function loadHistory(gateway: SnapshotGateway): readonly Snapshot[] {
   } catch {
     return [];
   }
-}
-
-/** Длина строки в байтах UTF-8. TextEncoder в plugin sandbox не гарантирован. */
-function utf8ByteLength(value: string): number {
-  let bytes = 0;
-  for (const char of value) {
-    const code = char.codePointAt(0) ?? 0;
-    if (code <= 0x7f) bytes += 1;
-    else if (code <= 0x7ff) bytes += 2;
-    else if (code <= 0xffff) bytes += 3;
-    else bytes += 4;
-  }
-  return bytes;
 }
 
 /**

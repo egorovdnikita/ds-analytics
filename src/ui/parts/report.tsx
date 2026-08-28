@@ -3,15 +3,18 @@
  * Тексты бытовые: «токен», «копия», «библиотека», без терминов из кода.
  */
 import { useMemo, useState } from 'react';
-import type { Adoption, MasterUsage } from '../../shared/adoption';
+import type { Adoption, MasterUsage, ScanReport } from '../../shared/adoption';
 import { buildAdvice, verdict } from '../../shared/advice';
+import { toMarkdown } from '../../shared/export';
+import { withCount } from '../../shared/plural';
 import { deltaPoints, shortDate, type Trend } from '../../shared/snapshot';
 import {
   AdviceRow,
   BarCell,
-  Delta,
   Button,
   Card,
+  CopyButton,
+  Delta,
   Empty,
   Field,
   Kpi,
@@ -33,14 +36,14 @@ import {
 export type MasterFilter = 'all' | 'library' | 'local' | 'unknown';
 
 export function SummaryScreen({
-  adoption,
-  trend,
+  report,
   onGoTo,
 }: {
-  adoption: Adoption;
-  trend: Trend;
+  report: ScanReport;
   onGoTo: (tab: 'Компоненты' | 'Токены', filter?: MasterFilter) => void;
 }): JSX.Element {
+  const adoption = report.adoption;
+  const trend = report.trend;
   const instances = adoption.instancesCounted;
   const tokenNodes =
     adoption.nodesOnLibraryVariable + adoption.nodesOnLocalVariable + adoption.nodesWithoutVariable;
@@ -72,6 +75,16 @@ export function SummaryScreen({
       </Card>
 
       <TrendCard adoption={adoption} trend={trend} />
+
+      <Card title="Забрать с собой">
+        <Note>
+          Отчёт в Markdown: вердикт, главные цифры, приоритеты и история. Вставляется в документ или
+          сообщение как есть.
+        </Note>
+        <div className="mt-3">
+          <CopyButton text={toMarkdown(report, new Date())} label="Скопировать отчёт" />
+        </div>
+      </Card>
 
       {advice.length > 0 && (
         <Card title="С чего начать">
@@ -249,23 +262,13 @@ function TrendCard({ adoption, trend }: { adoption: Adoption; trend: Trend }): J
       </div>
       <div className="mt-3">
         <Note>
-          {trend.points.length} замер{plural(trend.points.length)} по охвату «
+          {withCount(trend.points.length, 'замер', 'замера', 'замеров')} по охвату «
           {trend.points[0]?.scope ?? ''}». Один снимок в день: повторный прогон заменяет
           сегодняшний.
         </Note>
       </div>
     </Card>
   );
-}
-
-/** «1 замер», «2 замера», «5 замеров». */
-function plural(n: number): string {
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 14) return 'ов';
-  const mod10 = n % 10;
-  if (mod10 === 1) return '';
-  if (mod10 >= 2 && mod10 <= 4) return 'а';
-  return 'ов';
 }
 
 /* ---------- 2. Компоненты ---------- */

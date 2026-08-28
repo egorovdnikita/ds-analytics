@@ -5,6 +5,7 @@
  * версии, а импортируемый файл вообще писал человек. Поэтому разбор не
  * бросает исключений — он возвращает конфиг и список замечаний.
  */
+import { utf8ByteLength } from '../../shared/bytes';
 import type { AuditConfig, RuleLevel, RuleSetting, ScanScope } from '../../shared/types';
 
 const RULE_LEVELS: readonly RuleLevel[] = ['off', 'error', 'warning', 'info'];
@@ -210,24 +211,6 @@ export function saveConfig(gateway: ConfigGateway, config: AuditConfig): void {
   const bytes = utf8ByteLength(serialized);
   if (bytes > MAX_CONFIG_BYTES) throw new ConfigTooLargeError(bytes);
   gateway.setPluginData(CONFIG_KEY, serialized);
-}
-
-/**
- * Длина строки в байтах UTF-8.
- *
- * Считаем вручную: `TextEncoder` — часть DOM/Node, а plugin sandbox не даёт
- * гарантий на его наличие, и в `lib: ES2020` его типа тоже нет.
- */
-function utf8ByteLength(value: string): number {
-  let bytes = 0;
-  for (const char of value) {
-    const code = char.codePointAt(0) ?? 0;
-    if (code <= 0x7f) bytes += 1;
-    else if (code <= 0x7ff) bytes += 2;
-    else if (code <= 0xffff) bytes += 3;
-    else bytes += 4;
-  }
-  return bytes;
 }
 
 /** Экспорт в файл — с отступами, потому что этот JSON читают и правят руками. */

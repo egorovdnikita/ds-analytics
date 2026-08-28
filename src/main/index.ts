@@ -12,6 +12,7 @@ import type { Place } from '../shared/adoption';
 import type { ScanScope } from '../shared/types';
 import { buildAdoption, type MasterRef } from './analysis/adoption';
 import { appendSnapshot, buildSnapshot, buildTrend } from './analysis/snapshot';
+import { loadConfig } from './storage/config';
 import { HISTORY_LIMIT, loadHistory, saveHistory } from './storage/snapshots';
 import { traverse, type ScanTarget } from './scanner/traversal';
 import { VariableResolver } from './scanner/variables';
@@ -32,6 +33,19 @@ async function loadLastScope(): Promise<ScanScope | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Стартовый охват.
+ *
+ * Личная привычка важнее командного дефолта: если человек в прошлый раз
+ * сканировал весь файл, он и сейчас хочет весь файл. Конфиг команды
+ * работает как значение по умолчанию для тех, кто ещё ничего не выбирал.
+ */
+async function startingScope(): Promise<ScanScope> {
+  const personal = await loadLastScope();
+  if (personal !== null) return personal;
+  return loadConfig(figma.root).config.scope.default;
 }
 
 let cancelled = false;
@@ -243,7 +257,7 @@ async function reveal(nodeId: string, pageId: string): Promise<void> {
 function handle(message: UiMessage): void {
   switch (message.type) {
     case 'ui/ready':
-      void loadLastScope().then((lastScope) => {
+      void startingScope().then((lastScope) => {
         post({ type: 'main/booted', fileName: figma.root.name, lastScope });
       });
       return;

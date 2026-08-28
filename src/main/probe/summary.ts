@@ -11,6 +11,7 @@
  * Третий случай в отчёте читается как «у меня всё хорошо», хотя означает
  * «инструмент здесь слеп». Именно на этом мы потеряли два прогона.
  */
+import { withCount } from '../../shared/plural';
 import type {
   Diagnostics,
   FileProfile,
@@ -34,16 +35,6 @@ const LAYER_ROOTS = [
   'component',
   'alias',
 ];
-
-/** «1 токен», «2 токена», «5 токенов» — иначе отчёт выглядит машинным. */
-function tokens(n: number): string {
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 14) return `${n} токенов`;
-  const mod10 = n % 10;
-  if (mod10 === 1) return `${n} токен`;
-  if (mod10 >= 2 && mod10 <= 4) return `${n} токена`;
-  return `${n} токенов`;
-}
 
 function layersReadable(names: readonly string[]): boolean {
   return names.some((name) => LAYER_ROOTS.some((root) => name.toLowerCase().includes(root)));
@@ -124,7 +115,7 @@ function outcomeFor(
       if (total > 0 && layered / total < MIN_LAYER_COVERAGE) {
         return {
           status: 'not-applicable',
-          reason: `по уровням разложено ${tokens(layered)} из ${total} — слишком мало`,
+          reason: `по уровням разложено ${withCount(layered, 'токен', 'токена', 'токенов')} из ${total} — слишком мало`,
         };
       }
       if (d.nodesInComponentMaster === 0) {
@@ -187,7 +178,7 @@ function layerNote(d: Diagnostics, layersOk: boolean): string {
   }
 
   const mapped = [...new Set(d.layeredCollectionNames)].join(', ');
-  const head = `По уровням разложено ${tokens(layered)} из ${total}. Базовые ${v.primitives}, смысловые ${v.semantic}, компонентные ${v.component}. Коллекции: ${mapped}.`;
+  const head = `По уровням разложено ${withCount(layered, 'токен', 'токена', 'токенов')} из ${total}. Базовые ${v.primitives}, смысловые ${v.semantic}, компонентные ${v.component}. Коллекции: ${mapped}.`;
 
   if (total > 0 && layered / total < MIN_LAYER_COVERAGE) {
     return `${head} Это доли процента — проверять почти нечего.`;

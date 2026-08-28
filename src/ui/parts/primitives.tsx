@@ -2,7 +2,7 @@
  * Строительные блоки в стиле веба HireHi: серое полотно, белые карточки
  * со скруглениями, зелёный акцент, пилюли вместо рамок.
  */
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 export function Card({
   title,
@@ -533,4 +533,32 @@ export function Delta({ points, since }: { points: number; since: string }): JSX
       <span className="ml-1 text-ink-faint">с {since}</span>
     </span>
   );
+}
+
+/**
+ * Кнопка «скопировать» с подтверждением.
+ *
+ * Через скрытое поле и execCommand: в iframe плагина navigator.clipboard
+ * доступен не всегда, а молча ничего не скопировать — худший исход.
+ */
+export function CopyButton({ text, label }: { text: string; label: string }): JSX.Element {
+  const [copied, setCopied] = useState(false);
+
+  const copy = (): void => {
+    const field = document.createElement('textarea');
+    field.value = text;
+    field.style.position = 'fixed';
+    field.style.opacity = '0';
+    document.body.appendChild(field);
+    field.select();
+    try {
+      document.execCommand('copy');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } finally {
+      document.body.removeChild(field);
+    }
+  };
+
+  return <Button onClick={copy}>{copied ? 'Скопировано' : label}</Button>;
 }

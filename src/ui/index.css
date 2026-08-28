@@ -7,4 +7,21 @@
     @apply bg-canvas text-ink;
     font-feature-settings: 'tnum' off;
   }
+
+  /* Панель плагина проходится с клавиатуры так же, как любая форма.
+     Кольцо только на :focus-visible — мыши оно ни к чему. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent/60 ring-offset-1 ring-offset-white;
+    border-radius: 6px;
+  }
+
+  /* Ничего не двигается, если пользователь просил не двигать. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
 }

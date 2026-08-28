@@ -9,6 +9,7 @@
  * тестами, а не глазами.
  */
 import type { Adoption } from './adoption';
+import { withCount } from './plural';
 
 export type AdviceTarget =
   | { readonly kind: 'components'; readonly filter: 'local' | 'unknown' }
@@ -68,11 +69,11 @@ export function buildAdvice(adoption: Adoption): readonly Advice[] {
     advice.push({
       id: 'local-masters',
       title: 'Компоненты мимо библиотеки',
-      value: `${adoption.local.toLocaleString('ru')} копий · ${percent(adoption.local, instances)}`,
+      value: `${withCount(adoption.local, 'копия', 'копии', 'копий')} · ${percent(adoption.local, instances)}`,
       hint:
         top === undefined
           ? 'Собраны в этом файле, а не взяты из библиотеки.'
-          : `Больше всего у «${top.name}» — ${top.instances.toLocaleString('ru')} копий.`,
+          : `Больше всего у «${top.name}» — ${withCount(top.instances, 'копия', 'копии', 'копий')}.`,
       target: { kind: 'components', filter: 'local' },
       weight: 60 * share(adoption.local, instances),
     });
@@ -99,7 +100,7 @@ export function buildAdvice(adoption: Adoption): readonly Advice[] {
     advice.push({
       id: 'no-tokens',
       title: 'Цвета без токенов',
-      value: `${adoption.nodesWithoutVariable.toLocaleString('ru')} слоёв`,
+      value: withCount(adoption.nodesWithoutVariable, 'слой', 'слоя', 'слоёв'),
       hint: `Это ${percent(adoption.nodesWithoutVariable, tokenNodes)} слоёв с заливкой. При смене темы они не переключатся.`,
       target: { kind: 'none' },
       weight: 40 * share(adoption.nodesWithoutVariable, tokenNodes),

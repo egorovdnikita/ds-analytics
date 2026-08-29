@@ -10,6 +10,22 @@ export type ScanTarget =
   | { readonly kind: 'page'; readonly page: PageNode }
   | { readonly kind: 'file'; readonly document: DocumentNode };
 
+/**
+ * Контекст ноды, вычисленный по дороге вниз.
+ *
+ * Раньше эти признаки считались подъёмом по предкам на каждой ноде: O(глубина)
+ * на ноду и по нескольку раз за скан. На файле в 150k нод это ощутимо, а
+ * паспорт ставит такой файл как условие выживания. Обход и так идёт сверху
+ * вниз — значение родителя уже известно, и признак получается за O(1).
+ */
+export interface VisitContext {
+  readonly pageId: string;
+  /** Нода внутри инстанса — включая сам инстанс. */
+  readonly insideInstance: boolean;
+  /** Нода внутри определения компонента — включая сам компонент. */
+  readonly insideComponent: boolean;
+}
+
 export interface TraversalProgress {
   readonly nodesVisited: number;
   /** Для скоупа 'file' — сколько страниц пройдено. Иначе всегда 1 из 1. */
@@ -66,7 +82,7 @@ function childrenOf(node: SceneNode): readonly SceneNode[] {
  */
 export async function traverse(
   target: ScanTarget,
-  visit: (node: SceneNode, pageId: string) => void,
+  visit: (node: SceneNode, context: VisitContext) => void,
   options: TraversalOptions = {},
 ): Promise<TraversalResult> {
   const chunkSize = options.chunkSize ?? DEFAULT_CHUNK_SIZE;
@@ -98,20 +114,31 @@ export async function traverse(
     await page.loadAsync();
     report(page.name);
 
-    const stack: SceneNode[] = [...rootsFor(target, page)];
+    // На стеке лежит нода вместе с уже вычисленным контекстом родителя:
+    // так признаки «внутри инстанса» и «внутри компонента» не требуют
+    // повторного подъёма по дереву.
+    const stack: { node: SceneNode; insideInstance: boolean; insideComponent: boolean }[] = [];
+    for (const root of rootsFor(target, page)) {
+      stack.push({ node: root, insideInstance: false, insideComponent: false });
+    }
 
     while (stack.length > 0) {
-      const node = stack.pop();
-      if (node === undefined) break;
+      const entry = stack.pop();
+      if (entry === undefined) break;
 
-      visit(node, page.id);
+      const { node } = entry;
+      const insideInstance = entry.insideInstance || node.type === 'INSTANCE';
+      const insideComponent =
+        entry.insideComponent || node.type === 'COMPONENT' || node.type === 'COMPONENT_SET';
+
+      visit(node, { pageId: page.id, insideInstance, insideComponent });
       nodesVisited++;
       sinceLastYield++;
 
       const children = childrenOf(node);
       for (let i = children.length - 1; i >= 0; i--) {
         const child = children[i];
-        if (child !== undefined) stack.push(child);
+        if (child !== undefined) stack.push({ node: child, insideInstance, insideComponent });
       }
 
       if (sinceLastYield >= chunkSize) {

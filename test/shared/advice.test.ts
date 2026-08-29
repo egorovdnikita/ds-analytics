@@ -16,6 +16,7 @@ function adoption(over: Partial<Adoption> = {}): Adoption {
     nodesOnLibraryVariable: 1000,
     nodesOnLocalVariable: 0,
     nodesWithoutVariable: 0,
+    topVariables: [],
     ...over,
   };
 }

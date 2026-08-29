@@ -61,7 +61,7 @@ describe('traverse', () => {
     };
 
     const seen: string[] = [];
-    await traverse(target, (_node, pageId) => seen.push(pageId));
+    await traverse(target, (_node, context) => seen.push(context.pageId));
 
     expect(seen).toEqual(['7:7']);
   });

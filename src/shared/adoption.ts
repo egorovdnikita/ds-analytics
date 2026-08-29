@@ -65,6 +65,23 @@ export interface Adoption {
   readonly nodesOnLocalVariable: number;
   /** Нод, которые могли бы иметь переменную (есть заливка), но не имеют. */
   readonly nodesWithoutVariable: number;
+  /** Самые востребованные токены — обратный индекс для impact analysis. */
+  readonly topVariables: readonly VariableUsage[];
+}
+
+/**
+ * Где используется токен — основа для ответа «что сломается, если его удалить».
+ *
+ * `nodes` — точный счётчик, `places` — примеры для перехода. Хранить все
+ * места значит тащить в UI десятки тысяч записей.
+ */
+export interface VariableUsage {
+  readonly id: string;
+  readonly name: string;
+  readonly collectionName: string;
+  readonly nodes: number;
+  readonly pages: number;
+  readonly places: readonly Place[];
 }
 
 export interface ScanReport {

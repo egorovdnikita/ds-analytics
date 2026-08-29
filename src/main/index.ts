@@ -16,7 +16,6 @@ import {
   check,
   hasFills,
   hasFillStyle,
-  insideComponentMaster,
   insideInstance,
   PROBE_RULES,
   type Hit,
@@ -76,8 +75,8 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
 
   const result = await traverse(
     targetFor(scope),
-    (node, pageId) => {
-      nodes.push({ node, pageId });
+    (node, context) => {
+      nodes.push({ node, pageId: context.pageId });
       diagnostics.nodesTotal++;
 
       const aliases = allAliases(node);
@@ -85,7 +84,9 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
       for (const alias of aliases) aliasIds.add(alias.id);
 
       if (hasFillStyle(node)) diagnostics.nodesWithFillStyle++;
-      if (insideComponentMaster(node)) diagnostics.nodesInComponentMaster++;
+      // Признаки приходят из обхода: он идёт сверху вниз и знает их за O(1),
+      // а подъём по предкам на каждой ноде стоил O(глубина).
+      if (context.insideComponent) diagnostics.nodesInComponentMaster++;
       if (node.type === 'COMPONENT') diagnostics.localComponents++;
 
       if (node.type === 'INSTANCE') {
@@ -93,13 +94,11 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
         // Мастер резолвим только для инстансов верхнего уровня: вложенные
         // делят мастера с родителем, и тысячи лишних async-вызовов
         // растянули бы прогон на минуты.
-        const parent = node.parent;
-        const nested = parent !== null && 'type' in parent && insideInstance(parent as SceneNode);
-        if (!nested) {
+        if (!context.insideInstance) {
           diagnostics.instancesTopLevel++;
-          topLevelInstances.push({ node, pageId });
+          topLevelInstances.push({ node, pageId: context.pageId });
         }
-      } else if (insideInstance(node)) {
+      } else if (context.insideInstance) {
         diagnostics.nodesInsideInstance++;
       }
     },
@@ -196,6 +195,9 @@ async function runProbe(scope: ScanScope, seed: number): Promise<void> {
       {
         masterRefs,
         resolver,
+        // Пробнику impact не нужен: он меряет сигнал правил, а не цену
+        // изменения токенов.
+        topVariables: [],
         nodesOnLibraryVariable: onLibraryVariable,
         nodesOnLocalVariable: onLocalVariable,
         nodesWithoutVariable: withoutVariable,

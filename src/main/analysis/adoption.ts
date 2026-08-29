@@ -17,6 +17,7 @@ import type {
   MasterOrigin,
   MasterUsage,
   Place,
+  VariableUsage,
 } from '../../shared/adoption';
 import type { VariableResolver } from '../scanner/variables';
 
@@ -47,6 +48,7 @@ export interface AdoptionInput {
   readonly nodesOnLibraryVariable: number;
   readonly nodesOnLocalVariable: number;
   readonly nodesWithoutVariable: number;
+  readonly topVariables: readonly VariableUsage[];
 }
 
 export async function buildAdoption(
@@ -74,6 +76,7 @@ export async function buildAdoption(
     nodesOnLibraryVariable: input.nodesOnLibraryVariable,
     nodesOnLocalVariable: input.nodesOnLocalVariable,
     nodesWithoutVariable: input.nodesWithoutVariable,
+    topVariables: input.topVariables,
   };
 }
 

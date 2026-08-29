@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { toMarkdown } from '../../src/shared/export';
-import type { Adoption, ScanReport } from '../../src/shared/adoption';
+import type { Adoption, ScanReport, VariableUsage } from '../../src/shared/adoption';
+import { plain } from '../helpers/text';
 import type { Snapshot } from '../../src/shared/snapshot';
 
 function snap(over: Partial<Snapshot> = {}): Snapshot {
@@ -39,6 +40,7 @@ function report(over: Partial<Adoption> = {}, trend?: ScanReport['trend']): Scan
       nodesOnLibraryVariable: 80,
       nodesOnLocalVariable: 20,
       nodesWithoutVariable: 100,
+      topVariables: [],
       ...over,
     },
     trend: trend ?? { points: [], previous: null },
@@ -61,7 +63,7 @@ describe('отчёт в Markdown', () => {
     // разговор разной серьёзности.
     const text = toMarkdown(report(), at);
 
-    expect(text).toContain('60% · 60 из 100 копий');
+    expect(plain(text)).toContain('60% · 60 из 100 копий');
   });
 
   it('показывает изменение к прошлому замеру', () => {
@@ -123,5 +125,37 @@ describe('отчёт в Markdown', () => {
       at,
     );
     expect(text).not.toContain('С чего начать');
+  });
+});
+
+describe('токены в отчёте', () => {
+  const usage = (over: Partial<VariableUsage>): VariableUsage => ({
+    id: 'V1',
+    name: 'color/bg',
+    collectionName: 'Brand',
+    nodes: 3200,
+    pages: 12,
+    places: [],
+    ...over,
+  });
+
+  it('перечисляет самые востребованные и объясняет, зачем это число', () => {
+    const text = toMarkdown(report({ topVariables: [usage({})] }), at);
+
+    expect(text).toContain('## Токены, которые держат файл');
+    expect(text).toContain('сломается, если токен удалить или переименовать');
+    expect(plain(text)).toContain('| color/bg | Brand | 3 200 | 12 |');
+  });
+
+  it('без привязок раздел не выдумывается', () => {
+    expect(toMarkdown(report(), at)).not.toContain('Токены, которые держат файл');
+  });
+
+  it('не вываливает весь список — только верхушку', () => {
+    const many = Array.from({ length: 30 }, (_, i) => usage({ id: `V${i}`, name: `t-${i}` }));
+    const text = toMarkdown(report({ topVariables: many }), at);
+
+    expect(text).toContain('| t-0 |');
+    expect(text).not.toContain('| t-11 |');
   });
 });

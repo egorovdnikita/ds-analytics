@@ -11,6 +11,7 @@ import type { MainMessage, UiMessage } from '../shared/messages';
 import type { Place } from '../shared/adoption';
 import type { ScanScope } from '../shared/types';
 import { buildAdoption, type MasterRef } from './analysis/adoption';
+import { VariableUsageIndex } from './analysis/usage';
 import { appendSnapshot, buildSnapshot, buildTrend } from './analysis/snapshot';
 import { loadConfig } from './storage/config';
 import { HISTORY_LIMIT, loadHistory, saveHistory } from './storage/snapshots';
@@ -19,6 +20,9 @@ import { VariableResolver } from './scanner/variables';
 
 const UI_SIZE = { width: 480, height: 640 } as const;
 const SCOPE_KEY = 'last-scope';
+
+/** Сколько токенов показываем в impact-списке. Хвост никто не читает. */
+const TOP_VARIABLES = 60;
 
 /**
  * Охват прошлого запуска.
@@ -71,17 +75,6 @@ const SCOPE_LABEL: Readonly<Record<ScanScope, string>> = {
   file: 'весь файл',
 };
 
-/** Внутри ли нода инстанса — включая сам инстанс. */
-function insideInstance(node: SceneNode): boolean {
-  if (node.type === 'INSTANCE') return true;
-  let current: BaseNode | null = node.parent;
-  while (current !== null) {
-    if (current.type === 'INSTANCE') return true;
-    current = current.parent;
-  }
-  return false;
-}
-
 function isAlias(value: unknown): value is VariableAlias {
   return (
     typeof value === 'object' &&
@@ -127,18 +120,26 @@ async function scan(scope: ScanScope): Promise<void> {
   // Фаза 2 — обход дерева со сбором привязок и инстансов.
   const aliasIds = new Set<string>();
   const topLevelInstances: { node: InstanceNode; pageId: string }[] = [];
-  const nodes: SceneNode[] = [];
+  const usage = new VariableUsageIndex();
+  let withoutVariable = 0;
 
   const result = await traverse(
     targetFor(scope),
-    (node, pageId) => {
-      nodes.push(node);
-      for (const alias of allAliases(node)) aliasIds.add(alias.id);
+    (node, context) => {
+      const aliases = allAliases(node);
+      for (const alias of aliases) {
+        aliasIds.add(alias.id);
+        usage.add(alias.id, { nodeId: node.id, pageId: context.pageId, name: node.name });
+      }
+      if (aliases.length === 0 && !context.insideInstance && hasVisibleFill(node)) {
+        withoutVariable++;
+      }
 
-      if (node.type === 'INSTANCE') {
-        const parent = node.parent;
-        const nested = parent !== null && 'type' in parent && insideInstance(parent as SceneNode);
-        if (!nested) topLevelInstances.push({ node, pageId });
+      // Мастер резолвим только для инстансов верхнего уровня: вложенные
+      // делят его с родителем, и тысячи лишних async-вызовов растянули бы
+      // прогон на минуты.
+      if (node.type === 'INSTANCE' && !context.insideInstance) {
+        topLevelInstances.push({ node, pageId: context.pageId });
       }
     },
     {
@@ -167,19 +168,20 @@ async function scan(scope: ScanScope): Promise<void> {
     }
   }
 
-  // Фаза 4 — подсчёт покрытия по нодам.
-  let onLibraryVariable = 0;
-  let onLocalVariable = 0;
-  let withoutVariable = 0;
-  for (const node of nodes) {
-    const aliases = allAliases(node);
-    if (aliases.length === 0) {
-      if (!insideInstance(node) && hasVisibleFill(node)) withoutVariable++;
-      continue;
-    }
-    if (aliases.some((alias) => resolver.isLocal(alias.id))) onLocalVariable++;
-    else onLibraryVariable++;
-  }
+  // Фаза 4 — покрытие по нодам. Локальность известна только после гидрации,
+  // поэтому считается здесь, а не во время обхода.
+  const { onLocal: onLocalVariable, onLibrary: onLibraryVariable } = usage.splitByLocality(
+    (id: string) => resolver.isLocal(id),
+  );
+
+  // Обратный индекс: какие токены держат на себе файл и что сломается,
+  // если их тронуть.
+  const topVariables = usage.describe((id: string) => {
+    const resolved = resolver.resolve(id);
+    return resolved.state === 'unavailable'
+      ? null
+      : { name: resolved.name, collectionName: resolved.collectionName };
+  }, TOP_VARIABLES);
 
   const adoption = await buildAdoption(
     {
@@ -188,6 +190,7 @@ async function scan(scope: ScanScope): Promise<void> {
       nodesOnLibraryVariable: onLibraryVariable,
       nodesOnLocalVariable: onLocalVariable,
       nodesWithoutVariable: withoutVariable,
+      topVariables,
     },
     {
       // Обращение к figma.teamLibrary само бросает исключение, если в

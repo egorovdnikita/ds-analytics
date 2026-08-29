@@ -105,6 +105,22 @@ export function toMarkdown(report: ScanReport, at: Date): string {
     }
   }
 
+  const risky = adoption.topVariables.slice(0, 10);
+  if (risky.length > 0) {
+    lines.push('');
+    lines.push('## Токены, которые держат файл');
+    lines.push('');
+    lines.push('Столько мест сломается, если токен удалить или переименовать.');
+    lines.push('');
+    lines.push('| Токен | Коллекция | Слоёв | Страниц |');
+    lines.push('| --- | --- | --- | --- |');
+    for (const item of risky) {
+      lines.push(
+        `| ${cell(item.name)} | ${cell(item.collectionName || '—')} | ${num(item.nodes)} | ${item.pages} |`,
+      );
+    }
+  }
+
   if (trend.points.length >= 2) {
     lines.push('');
     lines.push('## Как менялось');

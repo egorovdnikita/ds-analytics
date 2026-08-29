@@ -3,10 +3,10 @@
  * Тексты бытовые: «токен», «копия», «библиотека», без терминов из кода.
  */
 import { useMemo, useState } from 'react';
-import type { Adoption, MasterUsage, ScanReport } from '../../shared/adoption';
+import type { Adoption, MasterUsage, ScanReport, VariableUsage } from '../../shared/adoption';
 import { buildAdvice, verdict } from '../../shared/advice';
 import { toMarkdown } from '../../shared/export';
-import { withCount } from '../../shared/plural';
+import { plural, withCount } from '../../shared/plural';
 import { deltaPoints, shortDate, type Trend } from '../../shared/snapshot';
 import {
   AdviceRow,
@@ -392,7 +392,9 @@ export function ComponentsScreen({
           <h4 className="mb-1 mt-4 text-[12px] text-ink-soft">
             Где посмотреть{' '}
             {selected.instances > selected.places.length && (
-              <span className="text-ink-faint">· первые {selected.places.length}</span>
+              <span className="text-ink-faint">
+                · {selected.places.length} из {selected.instances.toLocaleString('ru')}
+              </span>
             )}
           </h4>
           <Places places={selected.places} onReveal={onReveal} />
@@ -404,15 +406,79 @@ export function ComponentsScreen({
 
 /* ---------- 3. Токены ---------- */
 
-export function TokensScreen({ adoption }: { adoption: Adoption }): JSX.Element {
+type TokenView = 'collections' | 'variables';
+
+const TOKEN_VIEWS: readonly { value: TokenView; label: string }[] = [
+  { value: 'collections', label: 'коллекции' },
+  { value: 'variables', label: 'токены' },
+];
+
+export function TokensScreen({
+  adoption,
+  onReveal,
+}: {
+  adoption: Adoption;
+  onReveal: (nodeId: string, pageId: string) => void;
+}): JSX.Element {
+  const [view, setView] = useState<TokenView>('collections');
+  const [selected, setSelected] = useState<VariableUsage | null>(null);
+
+  if (adoption.collections.length === 0 && adoption.topVariables.length === 0) {
+    return <Empty title="Токенов нет" hint="В файле не нашлось ни одной переменной." />;
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-3">
+        <div>
+          <Segmented options={TOKEN_VIEWS} value={view} onChange={setView} />
+        </div>
+
+        {view === 'collections' ? (
+          <CollectionsTable adoption={adoption} />
+        ) : (
+          <VariablesTable adoption={adoption} onSelect={setSelected} />
+        )}
+      </div>
+
+      {selected !== null && (
+        <Modal title={selected.name} onClose={() => setSelected(null)}>
+          <Field label="Коллекция" value={selected.collectionName || '—'} />
+          <Field
+            label="Используется"
+            value={`${withCount(selected.nodes, 'слой', 'слоя', 'слоёв')} на ${withCount(selected.pages, 'странице', 'страницах', 'страницах')}`}
+          />
+          <div className="mt-3">
+            <Note>
+              Столько мест сломается, если токен удалить или переименовать. Это и есть ответ на
+              вопрос «можно ли его трогать».
+            </Note>
+          </div>
+
+          <h4 className="mb-1 mt-4 text-[12px] text-ink-soft">
+            Где посмотреть{' '}
+            {selected.nodes > selected.places.length && (
+              <span className="text-ink-faint">
+                · {selected.places.length} из {selected.nodes.toLocaleString('ru')}
+              </span>
+            )}
+          </h4>
+          <Places places={selected.places} onReveal={onReveal} />
+        </Modal>
+      )}
+    </>
+  );
+}
+
+function CollectionsTable({ adoption }: { adoption: Adoption }): JSX.Element {
   if (adoption.collections.length === 0) {
-    return <Empty title="Коллекций токенов нет" hint="В файле не нашлось ни одной переменной." />;
+    return <Empty title="Коллекций нет" />;
   }
 
   const max = Math.max(...adoption.collections.map((collection) => collection.variables));
 
   return (
-    <div className="flex flex-col gap-3">
+    <>
       <Card>
         <Table head={['Коллекция', 'Токенов']}>
           {adoption.collections.map((collection) => (
@@ -438,7 +504,81 @@ export function TokensScreen({ adoption }: { adoption: Adoption }): JSX.Element 
       <Note>
         «Библиотека не подключена» значит, что токен используется, а его источник файлу недоступен.
       </Note>
-    </div>
+    </>
+  );
+}
+
+/**
+ * Токены по востребованности — основа impact analysis.
+ *
+ * Паспорт: «что сломается, если удалить этот токен» — до рефакторинга,
+ * а не после. Число мест и есть цена вопроса.
+ */
+function VariablesTable({
+  adoption,
+  onSelect,
+}: {
+  adoption: Adoption;
+  onSelect: (usage: VariableUsage) => void;
+}): JSX.Element {
+  const [query, setQuery] = useState('');
+
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (needle === '') return adoption.topVariables;
+    return adoption.topVariables.filter(
+      (item) =>
+        item.name.toLowerCase().includes(needle) ||
+        item.collectionName.toLowerCase().includes(needle),
+    );
+  }, [adoption.topVariables, query]);
+
+  if (adoption.topVariables.length === 0) {
+    return <Empty title="Привязок к токенам нет" hint="В этом охвате ничего не привязано." />;
+  }
+
+  const max = visible[0]?.nodes ?? 1;
+
+  return (
+    <>
+      <Card>
+        <input
+          className="w-full rounded-pill bg-canvas px-3.5 py-2 text-[13px] outline-none placeholder:text-ink-faint"
+          placeholder="Найти токен"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </Card>
+
+      {visible.length === 0 ? (
+        <Empty title="Ничего не нашлось" hint="Попробуйте другое название." />
+      ) : (
+        <Card>
+          <Table head={['Токен', 'Слоёв']}>
+            {visible.map((item) => (
+              <Row
+                key={item.id}
+                onClick={() => onSelect(item)}
+                cells={[
+                  <div className="min-w-0">
+                    <div className="truncate">{item.name}</div>
+                    <div className="mt-0.5 truncate text-[11px] text-ink-faint">
+                      {item.collectionName || '—'} · {item.pages}{' '}
+                      {plural(item.pages, 'страница', 'страницы', 'страниц')}
+                    </div>
+                  </div>,
+                  <BarCell value={item.nodes} max={max} />,
+                ]}
+              />
+            ))}
+          </Table>
+        </Card>
+      )}
+
+      <Note>
+        Число слоёв — цена изменения: столько мест сломается, если токен удалить или переименовать.
+      </Note>
+    </>
   );
 }
 

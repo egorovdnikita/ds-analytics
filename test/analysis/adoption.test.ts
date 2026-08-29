@@ -39,6 +39,7 @@ async function build(masterRefs: (MasterRef | null)[], library = okLibrary) {
       nodesOnLibraryVariable: 0,
       nodesOnLocalVariable: 0,
       nodesWithoutVariable: 0,
+      topVariables: [],
     },
     library,
   );

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { plural, withCount } from '../../src/shared/plural';
+import { plain } from '../helpers/text';
 
 describe('склонения', () => {
   it.each([
@@ -25,9 +26,6 @@ describe('склонения', () => {
   });
 
   it('форматирует крупные числа по-русски', () => {
-    // Неразрывный пробел от toLocaleString — проверяем не формат пробела,
-    // а что разряды разделены и слово выбрано верно.
-    const text = withCount(20622, 'слой', 'слоя', 'слоёв');
-    expect(text).toMatch(/^20.622 слоя$/u);
+    expect(plain(withCount(20622, 'слой', 'слоя', 'слоёв'))).toBe('20 622 слоя');
   });
 });

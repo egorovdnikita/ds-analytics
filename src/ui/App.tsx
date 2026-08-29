@@ -262,7 +262,7 @@ function countFor(tab: Tab, report: ScanReport): number | null {
     case 'Компоненты':
       return report.adoption.masters.length;
     case 'Токены':
-      return report.adoption.collections.length;
+      return report.adoption.topVariables.length || report.adoption.collections.length;
     case 'Сводка':
       return null;
   }
@@ -296,6 +296,6 @@ function Content({
         />
       );
     case 'Токены':
-      return <TokensScreen adoption={report.adoption} />;
+      return <TokensScreen adoption={report.adoption} onReveal={onReveal} />;
   }
 }

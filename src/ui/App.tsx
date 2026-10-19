@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import type { MainMessage, UiMessage } from '../shared/messages';
 import { PROFILE_LABEL, type Adoption, type ProbeSummary } from '../shared/probe';
 import type { ScanScope } from '../shared/types';
-import { Button, Pill, Progress, Segmented } from './parts/primitives';
+import { Button, Pill, Progress, Segmented, statusAttrs } from './parts/primitives';
 import { ChecksTab, ComponentsTab, SummaryTab, TokensTab } from './parts/tabs';
 
 function send(message: UiMessage): void {
@@ -122,7 +122,7 @@ export function App(): JSX.Element {
         {/* Три строки, а не одна: на 480px имя файла, переключатель охвата и
             кнопка в один ряд не помещаются — имя схлопывалось в «Дизайн…». */}
         <div className="flex items-center gap-3">
-          <h1 className="min-w-0 flex-1 truncate text-[15px] font-medium">
+          <h1 className="min-w-0 flex-1 truncate text-body-l font-medium">
             {result.summary.fileName}
           </h1>
           <Button onClick={start}>Ещё раз</Button>
@@ -130,7 +130,7 @@ export function App(): JSX.Element {
 
         <div className="mt-2 flex items-center gap-2">
           <Pill>{PROFILE_LABEL[result.summary.profile]}</Pill>
-          <span className="text-[12px] tabular-nums text-ink-faint">
+          <span className="text-caption-l tabular-nums text-ink-faint">
             {result.summary.nodesVisited.toLocaleString('ru')} слоёв
           </span>
         </div>
@@ -146,15 +146,15 @@ export function App(): JSX.Element {
             return (
               <button
                 key={name}
-                className={`flex shrink-0 items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] ${
-                  active ? 'bg-accent font-medium text-white' : 'bg-white text-ink-soft'
+                className={`flex shrink-0 items-center gap-1.5 rounded-pill px-3 py-1.5 text-body-m ${
+                  active ? 'bg-accent font-medium text-accent-on' : 'bg-surface text-ink-soft'
                 }`}
                 onClick={() => setTab(name)}
               >
                 {name}
                 {count !== null && (
                   <span
-                    className={`tabular-nums text-[11px] ${active ? 'text-white/70' : 'text-ink-faint'}`}
+                    className={`tabular-nums text-caption-l ${active ? 'text-accent-on-muted' : 'text-ink-faint'}`}
                   >
                     {count.toLocaleString('ru')}
                   </span>
@@ -195,12 +195,12 @@ function Start({
   return (
     <div className="flex h-screen flex-col items-center justify-center bg-canvas px-6 text-center">
       <div className="w-full max-w-xs">
-        <h1 className="text-[22px] font-semibold leading-tight">
+        <h1 className="text-h4 font-semibold leading-tight">
           проверим, как файл живёт
           <br />
           на дизайн-системе
         </h1>
-        <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">
+        <p className="mt-2 text-body-m leading-relaxed text-ink-soft">
           Сколько компонентов берётся из библиотеки, сколько сделано мимо неё и на чём держатся
           цвета.
         </p>
@@ -210,8 +210,8 @@ function Start({
             <button
               key={item.value}
               disabled={running}
-              className={`rounded-full px-3 py-1.5 text-[13px] ${
-                scope === item.value ? 'bg-white font-medium' : 'text-ink-soft'
+              className={`rounded-pill px-3 py-1.5 text-body-m ${
+                scope === item.value ? 'bg-surface font-medium' : 'text-ink-soft'
               }`}
               onClick={() => setScope(item.value)}
             >
@@ -244,11 +244,15 @@ function Start({
               }
             />
           )}
-          {error !== null && <p className="text-[12px] leading-snug text-danger">{error}</p>}
+          {error !== null && (
+            <p className="text-caption-l leading-snug text-status-ink" {...statusAttrs('negative')}>
+              {error}
+            </p>
+          )}
         </div>
 
         {fileName !== null && !running && (
-          <p className="mt-6 truncate text-[12px] text-ink-faint">{fileName}</p>
+          <p className="mt-6 truncate text-caption-l text-ink-faint">{fileName}</p>
         )}
       </div>
     </div>
@@ -324,12 +328,12 @@ function CsvView({ csv }: { csv: string }): JSX.Element {
     <div className="flex h-full flex-col gap-3">
       <div className="flex items-center gap-2">
         <Button onClick={copy}>{copied ? 'Скопировано' : 'Скопировать'}</Button>
-        <span className="text-[12px] text-ink-faint">
+        <span className="text-caption-l text-ink-faint">
           {csv.split('\n').length.toLocaleString('ru')} строк
         </span>
       </div>
       <textarea
-        className="min-h-0 flex-1 resize-none rounded-card border-0 bg-white p-3 font-mono text-[11px] leading-snug outline-none"
+        className="min-h-0 flex-1 resize-none rounded-card border-0 bg-surface p-3 font-mono text-caption-l leading-snug outline-none"
         readOnly
         value={csv}
         onFocus={(e) => e.currentTarget.select()}

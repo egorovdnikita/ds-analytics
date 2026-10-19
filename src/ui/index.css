@@ -1,18 +1,22 @@
+/* Дизайн-система Box UI: примитивы, моды темы и состояния контролов.
+   Вендорная копия, см. vendor/box-ui/SOURCE.md. */
+@import './vendor/box-ui/primitives.css';
+@import './vendor/box-ui/theme.css';
+@import './vendor/box-ui/controls.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    @apply bg-canvas text-ink;
-    font-feature-settings: 'tnum' off;
+    @apply bg-canvas font-sans text-body-m text-ink;
   }
 
   /* Панель плагина проходится с клавиатуры так же, как любая форма.
      Кольцо только на :focus-visible — мыши оно ни к чему. */
   :focus-visible {
-    @apply outline-none ring-2 ring-accent/60 ring-offset-1 ring-offset-white;
-    border-radius: 6px;
+    @apply rounded-xs outline-none ring-2 ring-accent ring-offset-1 ring-offset-surface;
   }
 
   /* Ничего не двигается, если пользователь просил не двигать. */

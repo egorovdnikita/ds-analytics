@@ -5,5 +5,13 @@
     "types": ["@figma/plugin-typings", "vitest/globals", "node"],
     "noEmit": true
   },
-  "include": ["test/**/*.ts", "src/main/**/*.ts", "src/shared/**/*.ts", "*.config.ts", "*.mjs"]
+  "include": [
+    "test/**/*.ts",
+    "src/main/**/*.ts",
+    "src/shared/**/*.ts",
+    "*.config.ts",
+    "*.mjs",
+    "src/ui/icons.ts",
+    "src/ui/vendor/box-ui/icons.json"
+  ]
 }

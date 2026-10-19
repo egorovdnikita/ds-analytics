@@ -76,7 +76,7 @@ export function SummaryTab({
       <Card
         title="Откуда компоненты"
         action={
-          <button className="text-[12px] text-accent-ink" onClick={() => onGoTo('Компоненты')}>
+          <button className="text-caption-l text-accent-ink" onClick={() => onGoTo('Компоненты')}>
             все →
           </button>
         }
@@ -84,7 +84,12 @@ export function SummaryTab({
         <StackedBar
           segments={[
             { label: 'Из библиотеки', value: adoption.fromLibrary, className: 'bg-accent' },
-            { label: 'Свои в этом файле', value: adoption.local, className: 'bg-warn' },
+            {
+              label: 'Свои в этом файле',
+              value: adoption.local,
+              className: 'bg-status',
+              status: 'warning',
+            },
             { label: 'Библиотека отключена', value: adoption.unknown, className: 'bg-ink-faint' },
           ]}
         />
@@ -101,7 +106,7 @@ export function SummaryTab({
       <Card
         title="Откуда токены"
         action={
-          <button className="text-[12px] text-accent-ink" onClick={() => onGoTo('Токены')}>
+          <button className="text-caption-l text-accent-ink" onClick={() => onGoTo('Токены')}>
             все →
           </button>
         }
@@ -113,7 +118,12 @@ export function SummaryTab({
               value: adoption.nodesOnLibraryVariable,
               className: 'bg-accent',
             },
-            { label: 'Свои', value: adoption.nodesOnLocalVariable, className: 'bg-warn' },
+            {
+              label: 'Свои',
+              value: adoption.nodesOnLocalVariable,
+              className: 'bg-status',
+              status: 'warning',
+            },
             {
               label: 'Без токена',
               value: adoption.nodesWithoutVariable,
@@ -151,12 +161,12 @@ export function SummaryTab({
       <Card
         title="Проверки"
         action={
-          <button className="text-[12px] text-accent-ink" onClick={() => onGoTo('Проверки')}>
+          <button className="text-caption-l text-accent-ink" onClick={() => onGoTo('Проверки')}>
             все →
           </button>
         }
       >
-        <p className="text-[13px] text-ink-soft">
+        <p className="text-body-m text-ink-soft">
           {summary.toJudge === 0
             ? 'Проверять на этом файле нечего.'
             : `Нашли ${summary.toJudge.toLocaleString('ru')} мест, которые стоит посмотреть.`}
@@ -219,7 +229,7 @@ export function ComponentsTab({
       <div className="flex flex-col gap-3">
         <Card>
           <input
-            className="w-full rounded-pill bg-canvas px-3.5 py-2 text-[13px] outline-none placeholder:text-ink-faint"
+            className="w-full rounded-pill bg-canvas px-3.5 py-2 text-body-m outline-none placeholder:text-ink-faint"
             placeholder="Найти компонент"
             value={query}
             onChange={(e) => {
@@ -290,7 +300,7 @@ export function ComponentsTab({
             </Note>
           </div>
 
-          <h4 className="mb-1 mt-4 text-[12px] text-ink-soft">
+          <h4 className="mb-1 mt-4 text-caption-l text-ink-soft">
             Где посмотреть{' '}
             {selected.instances > selected.places.length && (
               <span className="text-ink-faint">· первые {selected.places.length}</span>
@@ -361,10 +371,10 @@ export function ChecksTab({
           {summary.rules.map((rule) => (
             <li key={rule.rule}>
               <button
-                className="flex w-full items-center gap-3 border-t border-canvas py-3 text-left first:border-0"
+                className="flex w-full items-center gap-3 border-t border-line-subtle py-3 text-left first:border-0"
                 onClick={() => setSelected(rule)}
               >
-                <span className="min-w-0 flex-1 truncate text-[13px]">{RULE_LABEL[rule.rule]}</span>
+                <span className="min-w-0 flex-1 truncate text-body-m">{RULE_LABEL[rule.rule]}</span>
                 <OutcomePill outcome={rule.outcome} />
               </button>
             </li>
@@ -385,7 +395,10 @@ export function ChecksTab({
               <Field label="Посмотреть" value={selected.outcome.sampled} />
             </>
           )}
-          <Field label="Код правила" value={<code className="text-[12px]">{selected.rule}</code>} />
+          <Field
+            label="Код правила"
+            value={<code className="text-caption-l">{selected.rule}</code>}
+          />
           <div className="mt-3">
             <Note>
               {selected.outcome.status === 'not-applicable'
@@ -398,7 +411,7 @@ export function ChecksTab({
 
           {selected.outcome.status === 'measured' && (
             <>
-              <h4 className="mb-1 mt-4 text-[12px] text-ink-soft">Где посмотреть</h4>
+              <h4 className="mb-1 mt-4 text-caption-l text-ink-soft">Где посмотреть</h4>
               <Places places={selected.places} onReveal={onReveal} />
             </>
           )}

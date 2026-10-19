@@ -65,10 +65,12 @@ npm run build      # затем Plugins -> Development -> Import plugin from man
 
 ## Tech stack
 
-TypeScript · React + Vite · Tailwind · Shadcn UI · Vitest
+TypeScript · React + Vite · Tailwind на токенах [Box UI](https://github.com/egorovdnikita/box-ui) · Vitest
 
 Целевой размер UI-бандла — до 500 KB.
 
 ## Лицензия
 
 [MIT](LICENSE).
+
+Интерфейс использует токены и иконки дизайн-системы [Box UI](https://github.com/egorovdnikita/box-ui) (MIT). Иконки — набор [Solar](https://www.figma.com/community/file/1166831539721848736) © 480 Design, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).

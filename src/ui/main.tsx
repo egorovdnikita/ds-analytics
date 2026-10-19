@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { ErrorBoundary } from './parts/boundary';
 import './index.css';
+import { applyModes } from './theme';
+
+applyModes(document.documentElement);
 
 const container = document.getElementById('root');
 if (container === null) throw new Error('#root not found');

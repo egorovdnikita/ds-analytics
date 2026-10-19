@@ -281,7 +281,9 @@ function handle(message: UiMessage): void {
   }
 }
 
-figma.showUI(__html__, UI_SIZE);
+// themeColors: Figma вешает на <html> класс figma-dark — по нему тема Box UI
+// в панели следует за темой самой Figma.
+figma.showUI(__html__, { ...UI_SIZE, themeColors: true });
 figma.ui.onmessage = (message: UiMessage) => {
   handle(message);
 };

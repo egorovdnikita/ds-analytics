@@ -29,6 +29,19 @@ npm run dev        # watch-сборка plugin sandbox
 
 Проще всего добавить строку и не индексировать её: `git update-index --skip-worktree manifest.json`.
 
+## Дизайн-система
+
+Интерфейс собран на [Box UI](https://github.com/egorovdnikita/box-ui). Вендорная копия лежит в `src/ui/vendor/box-ui/` — руками её не править.
+
+```
+npm run sync:box-ui                        # свежий main из GitHub
+BOX_UI_DIR=../box-ui npm run sync:box-ui   # из локальной копии
+```
+
+- Цвет, радиус, кегль — только классы из `tailwind.config.js`, они ссылаются на токены. Литеральное `text-[13px]` или `#41AE80` — ошибка.
+- Нужна иконка — добавить имя в `src/ui/icons.ts` и пересинхронизировать. Имена — как в [Storybook Box UI](https://egorovdnikita.github.io/box-ui/).
+- Предупреждение или ошибка — через `statusAttrs('warning')`, иначе статусный цвет возьмётся с корня.
+
 ## Структура
 
 | Путь            | Что можно                       | Чего нельзя                      |

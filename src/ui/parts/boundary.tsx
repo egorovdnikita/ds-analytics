@@ -7,6 +7,7 @@
  * вернуться к началу.
  */
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Icon } from './icon';
 
 interface Props {
   readonly children: ReactNode;
@@ -34,11 +35,18 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-canvas px-6 text-center">
-        <div className="w-full max-w-xs rounded-card bg-white p-5">
-          <p className="text-[15px] font-medium">Отчёт не отрисовался</p>
-          <p className="mt-2 text-[12px] leading-relaxed text-ink-faint">{this.state.message}</p>
+        <div className="w-full max-w-xs rounded-card bg-surface p-5">
+          <span
+            className="mx-auto mb-3 block w-fit text-status-ink"
+            data-box-control=""
+            data-status="negative"
+          >
+            <Icon name="danger-triangle" size="xs" />
+          </span>
+          <p className="text-body-l font-medium">Отчёт не отрисовался</p>
+          <p className="mt-2 text-caption-l leading-relaxed text-ink-faint">{this.state.message}</p>
           <button
-            className="mt-4 rounded-pill bg-accent px-4 py-2 text-[13px] font-medium text-white"
+            className="mt-4 rounded-pill bg-accent px-4 py-2 text-body-m font-medium text-accent-on"
             onClick={() => {
               this.setState({ message: null });
               this.props.onReset();

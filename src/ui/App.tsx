@@ -8,7 +8,9 @@ import { useEffect, useState } from 'react';
 import type { ScanReport } from '../shared/adoption';
 import type { MainMessage, UiMessage } from '../shared/messages';
 import type { ScanScope } from '../shared/types';
-import { Button, Pill, Progress, Segmented } from './parts/primitives';
+import type { IconName } from './icons';
+import { Icon } from './parts/icon';
+import { Button, Pill, Progress, Segmented, statusAttrs } from './parts/primitives';
 import { ComponentsScreen, SummaryScreen, TokensScreen, type MasterFilter } from './parts/report';
 
 function send(message: UiMessage): void {
@@ -17,6 +19,12 @@ function send(message: UiMessage): void {
 
 const TABS = ['Сводка', 'Компоненты', 'Токены'] as const;
 type Tab = (typeof TABS)[number];
+
+const TAB_ICONS: Readonly<Record<Tab, IconName>> = {
+  Сводка: 'graph-up',
+  Компоненты: 'widget',
+  Токены: 'palette',
+};
 
 const SCOPES: readonly { value: ScanScope; label: string }[] = [
   { value: 'selection', label: 'выделение' },
@@ -112,13 +120,15 @@ export function App(): JSX.Element {
         {/* Три строки, а не одна: на 480px имя файла, переключатель охвата и
             кнопка в один ряд не помещаются — имя схлопывалось в «Дизайн…». */}
         <div className="flex items-center gap-3">
-          <h1 className="min-w-0 flex-1 truncate text-[15px] font-medium">{report.fileName}</h1>
-          <Button onClick={start}>Ещё раз</Button>
+          <h1 className="min-w-0 flex-1 truncate text-body-l font-medium">{report.fileName}</h1>
+          <Button onClick={start} icon="refresh">
+            Ещё раз
+          </Button>
         </div>
 
         <div className="mt-2 flex items-center gap-2">
           <Pill>{report.scope}</Pill>
-          <span className="text-[12px] tabular-nums text-ink-faint">
+          <span className="text-caption-l tabular-nums text-ink-faint">
             {report.nodesVisited.toLocaleString('ru')} слоёв
           </span>
           {report.cancelled && <Pill tone="warn">остановлено</Pill>}
@@ -135,18 +145,19 @@ export function App(): JSX.Element {
             return (
               <button
                 key={name}
-                className={`flex shrink-0 items-center gap-1.5 rounded-pill px-3 py-1.5 text-[13px] ${
-                  active ? 'bg-accent font-medium text-white' : 'bg-white text-ink-soft'
+                className={`flex shrink-0 items-center gap-1.5 rounded-pill px-3 py-1.5 text-body-m ${
+                  active ? 'bg-accent font-medium text-accent-on' : 'bg-surface text-ink-soft'
                 }`}
                 onClick={() => {
                   if (name === 'Компоненты') setComponentFilter('all');
                   setTab(name);
                 }}
               >
+                <Icon name={TAB_ICONS[name]} />
                 {name}
                 {count !== null && (
                   <span
-                    className={`tabular-nums text-[11px] ${active ? 'text-white/70' : 'text-ink-faint'}`}
+                    className={`tabular-nums text-caption-l ${active ? 'text-accent-on-muted' : 'text-ink-faint'}`}
                   >
                     {count.toLocaleString('ru')}
                   </span>
@@ -195,13 +206,16 @@ function Start({
 }): JSX.Element {
   return (
     <div className="flex h-screen flex-col items-center justify-center bg-canvas px-6 text-center">
-      <div className="w-full max-w-xs">
-        <h1 className="text-[22px] font-semibold leading-tight">
-          проверим, как файл живёт
-          <br />
-          на дизайн-системе
+      <div className="flex w-full max-w-xs flex-col items-center">
+        <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-pill bg-accent-soft text-accent-ink">
+          <Icon name="library" size="s" />
+        </span>
+        {/* Перенос не зашит: кегль приходит из токена h4 и меняется вместе с
+            ним, а ручной <br> был подогнан под одну конкретную ширину. */}
+        <h1 className="text-balance text-h4 font-semibold">
+          проверим, как файл живёт на дизайн-системе
         </h1>
-        <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">
+        <p className="mt-2 text-body-m leading-relaxed text-ink-soft">
           Сколько компонентов берётся из библиотеки, сколько сделано мимо неё и на чём держатся
           цвета.
         </p>
@@ -211,8 +225,8 @@ function Start({
             <button
               key={item.value}
               disabled={running}
-              className={`rounded-pill px-3 py-1.5 text-[13px] ${
-                scope === item.value ? 'bg-white font-medium' : 'text-ink-soft'
+              className={`rounded-pill px-3 py-1.5 text-body-m ${
+                scope === item.value ? 'bg-surface font-medium' : 'text-ink-soft'
               }`}
               onClick={() => setScope(item.value)}
             >
@@ -223,11 +237,11 @@ function Start({
 
         <div className="mt-4 flex justify-center">
           {running ? (
-            <Button variant="quiet" size="lg" onClick={onCancel}>
+            <Button variant="quiet" size="lg" onClick={onCancel} icon="stop-circle">
               Остановить
             </Button>
           ) : (
-            <Button size="lg" onClick={onStart}>
+            <Button size="lg" onClick={onStart} icon="play">
               Проверить
             </Button>
           )}
@@ -245,11 +259,15 @@ function Start({
               }
             />
           )}
-          {error !== null && <p className="text-[12px] leading-snug text-danger">{error}</p>}
+          {error !== null && (
+            <p className="text-caption-l leading-snug text-status-ink" {...statusAttrs('negative')}>
+              {error}
+            </p>
+          )}
         </div>
 
         {fileName !== null && !running && (
-          <p className="mt-6 truncate text-[12px] text-ink-faint">{fileName}</p>
+          <p className="mt-6 truncate text-caption-l text-ink-faint">{fileName}</p>
         )}
       </div>
     </div>

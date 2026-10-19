@@ -8,6 +8,7 @@ import { buildAdvice, verdict } from '../../shared/advice';
 import { toMarkdown } from '../../shared/export';
 import { plural, withCount } from '../../shared/plural';
 import { deltaPoints, shortDate, type Trend } from '../../shared/snapshot';
+import { Icon } from './icon';
 import {
   AdviceRow,
   BarCell,
@@ -25,6 +26,7 @@ import {
   Places,
   Ring,
   Row,
+  SearchInput,
   Segmented,
   Sparkline,
   StackedBar,
@@ -58,7 +60,7 @@ export function SummaryScreen({
           читателя гадать, хорошо это или плохо. */}
       <Card>
         <p
-          className={`text-center text-[15px] font-medium ${
+          className={`text-center text-body-l font-medium ${
             state.tone === 'good' ? 'text-accent-ink' : 'text-ink'
           }`}
         >
@@ -128,8 +130,11 @@ export function SummaryScreen({
       <Card
         title="Откуда компоненты"
         action={
-          <button className="text-[12px] text-accent-ink" onClick={() => onGoTo('Компоненты')}>
-            все →
+          <button
+            className="flex items-center gap-0.5 text-caption-l text-accent-ink"
+            onClick={() => onGoTo('Компоненты')}
+          >
+            все <Icon name="alt-arrow-right" />
           </button>
         }
       >
@@ -144,7 +149,8 @@ export function SummaryScreen({
             {
               label: 'Свои в этом файле',
               value: adoption.local,
-              className: 'bg-warn',
+              className: 'bg-status',
+              status: 'warning',
               onClick: () => onGoTo('Компоненты', 'local'),
             },
             {
@@ -168,8 +174,11 @@ export function SummaryScreen({
       <Card
         title="Откуда токены"
         action={
-          <button className="text-[12px] text-accent-ink" onClick={() => onGoTo('Токены')}>
-            все →
+          <button
+            className="flex items-center gap-0.5 text-caption-l text-accent-ink"
+            onClick={() => onGoTo('Токены')}
+          >
+            все <Icon name="alt-arrow-right" />
           </button>
         }
       >
@@ -180,7 +189,12 @@ export function SummaryScreen({
               value: adoption.nodesOnLibraryVariable,
               className: 'bg-accent',
             },
-            { label: 'Свои', value: adoption.nodesOnLocalVariable, className: 'bg-warn' },
+            {
+              label: 'Свои',
+              value: adoption.nodesOnLocalVariable,
+              className: 'bg-status',
+              status: 'warning',
+            },
             {
               label: 'Без токена',
               value: adoption.nodesWithoutVariable,
@@ -253,7 +267,7 @@ function TrendCard({ adoption, trend }: { adoption: Adoption; trend: Trend }): J
     <Card title="Тренд">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[13px]">Компоненты из библиотеки</p>
+          <p className="text-body-m">Компоненты из библиотеки</p>
           <p className="mt-1">
             <Delta points={delta} since={shortDate(trend.previous.at)} />
           </p>
@@ -317,12 +331,11 @@ export function ComponentsScreen({
     <>
       <div className="flex flex-col gap-3">
         <Card>
-          <input
-            className="w-full rounded-pill bg-canvas px-3.5 py-2 text-[13px] outline-none placeholder:text-ink-faint"
+          <SearchInput
             placeholder="Найти компонент"
             value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
+            onChange={(value) => {
+              setQuery(value);
               setLimit(PAGE_SIZE);
             }}
           />
@@ -389,7 +402,7 @@ export function ComponentsScreen({
             </Note>
           </div>
 
-          <h4 className="mb-1 mt-4 text-[12px] text-ink-soft">
+          <h4 className="mb-1 mt-4 text-caption-l text-ink-soft">
             Где посмотреть{' '}
             {selected.instances > selected.places.length && (
               <span className="text-ink-faint">
@@ -455,7 +468,7 @@ export function TokensScreen({
             </Note>
           </div>
 
-          <h4 className="mb-1 mt-4 text-[12px] text-ink-soft">
+          <h4 className="mb-1 mt-4 text-caption-l text-ink-soft">
             Где посмотреть{' '}
             {selected.nodes > selected.places.length && (
               <span className="text-ink-faint">
@@ -542,12 +555,7 @@ function VariablesTable({
   return (
     <>
       <Card>
-        <input
-          className="w-full rounded-pill bg-canvas px-3.5 py-2 text-[13px] outline-none placeholder:text-ink-faint"
-          placeholder="Найти токен"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+        <SearchInput placeholder="Найти токен" value={query} onChange={setQuery} />
       </Card>
 
       {visible.length === 0 ? (
@@ -562,7 +570,7 @@ function VariablesTable({
                 cells={[
                   <div className="min-w-0">
                     <div className="truncate">{item.name}</div>
-                    <div className="mt-0.5 truncate text-[11px] text-ink-faint">
+                    <div className="mt-0.5 truncate text-caption-l text-ink-faint">
                       {item.collectionName || '—'} · {item.pages}{' '}
                       {plural(item.pages, 'страница', 'страницы', 'страниц')}
                     </div>

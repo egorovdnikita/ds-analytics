@@ -109,4 +109,4 @@ BOX_UI_DIR=../box-ui npm run sync:box-ui   # из локальной копии
 | [0003](docs/decisions/0003-incremental-invalidation.md) | Инвалидация событиями вместо хэша ноды           |
 | [0004](docs/decisions/0004-variable-resolver.md)        | Библиотечные переменные и двухфазный скан        |
 
-Читать до работы над `scanner/` или `fixes/`. Открытые вопросы — в [аудите](docs/pre-launch-audit.md).
+Читать до работы над `scanner/` или `fixes/`. Открытые вопросы — в [аудите](docs/audits/2026-08-23-pre-launch.md).

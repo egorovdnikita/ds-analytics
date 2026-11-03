@@ -1,7 +1,7 @@
 # 0002. Обход дерева при documentAccess: "dynamic-page"
 
 **Статус:** принято, 2026-08-23
-**Контекст:** [pre-launch аудит, блок B3](../pre-launch-audit.md)
+**Контекст:** [pre-launch аудит, блок B3](../audits/2026-08-23-pre-launch.md)
 
 ## Проблема
 

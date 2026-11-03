@@ -55,6 +55,7 @@ TypeScript · Figma Plugin API · React · Vite · Tailwind · Box UI · Vitest
 ## Документация
 
 - [Паспорт проекта](CLAUDE.md) — архитектура, каталог правил, ограничения, соглашения, roadmap
+- [Журнал аудитов](docs/AUDIT_LOG.md)
 - [Статус и ближайший гейт](docs/status.md)
 - [Позиционирование](docs/positioning.md)
 - [Как добавить правило](CONTRIBUTING.md) — границы модулей, порядок скана
